@@ -27,7 +27,7 @@
             </intent-filter>
         </service>
 
-        <!-- Lets "Share" hand drive recordings to other apps. -->
+        <!-- Lets "Share" hand Drive Recordings to other apps. Authority must match DriveRecorder.shareIntent. -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.recordings"

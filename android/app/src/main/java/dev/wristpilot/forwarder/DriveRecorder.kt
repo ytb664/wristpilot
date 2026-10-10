@@ -1,19 +1,24 @@
 package dev.wristpilot.forwarder
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
+import androidx.core.content.FileProvider
 import org.json.JSONObject
 import java.io.File
-import java.io.FileWriter
+import java.io.FileOutputStream
+import java.io.OutputStreamWriter
+import java.io.Writer
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 
 /**
- * Drive recording: while "Record drive" is on, every Raw Guidance Snapshot is appended to one
+ * Drive Recordings: while "Record drive" is on, every Raw Guidance Snapshot is appended to one
  * file, one JSON snapshot per line (JSON Lines). Each time recording is switched on a new file
- * starts, so one recording = one drive. These files become the Guidance core's test fixtures.
+ * starts; the user switches it on before a drive and off after it. These files become the
+ * Guidance core's test fixtures.
  *
  * The switch is remembered, so if HyperOS kills and restarts the forwarder mid-drive, recording
  * carries on in a new file.
@@ -25,7 +30,7 @@ object DriveRecorder {
 
     /** Writes happen off the main thread, in order. */
     private val io = Executors.newSingleThreadExecutor()
-    private var writer: FileWriter? = null
+    private var writer: Writer? = null
 
     fun dir(context: Context): File =
         File(context.getExternalFilesDir(null) ?: context.filesDir, "recordings").apply { mkdirs() }
@@ -48,7 +53,7 @@ object DriveRecorder {
         val app = context.applicationContext
         io.execute {
             try {
-                val w = writer ?: FileWriter(newFile(app)).also { writer = it }
+                val w = writer ?: open(newFile(app)).also { writer = it }
                 w.write(line)
                 w.write("\n")
                 // Flush every line: the process may be killed at any moment.
@@ -59,6 +64,19 @@ object DriveRecorder {
             }
         }
     }
+
+    /** A chooser that hands [file] to another app (Drive, Telegram, email…). */
+    fun shareIntent(context: Context, file: File): Intent {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.recordings", file)
+        val send = Intent(Intent.ACTION_SEND)
+            .setType("text/plain")
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        return Intent.createChooser(send, "Share ${file.name}")
+    }
+
+    // Append, so a second file opened within the same second never erases the first.
+    private fun open(file: File): Writer = OutputStreamWriter(FileOutputStream(file, true), Charsets.UTF_8)
 
     private fun newFile(context: Context): File {
         val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())

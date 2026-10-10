@@ -4,9 +4,7 @@ import android.app.Notification
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
-import android.os.Build
 import android.service.notification.StatusBarNotification
 import android.util.Base64
 import org.json.JSONArray
@@ -46,18 +44,13 @@ object RawGuidanceSnapshot {
             .put("icon", largeIcon(context, n)?.let(::encodeIcon) ?: JSONObject.NULL)
     }
 
+    // getLargeIcon() also covers apps that set the large icon as a plain Bitmap.
     private fun largeIcon(context: Context, n: Notification): Drawable? = try {
         n.getLargeIcon()?.loadDrawable(context)
-            ?: legacyLargeIcon(n)?.let { BitmapDrawable(context.resources, it) }
     } catch (e: Exception) {
         // A broken icon must never stop the text from being forwarded.
         null
     }
-
-    @Suppress("DEPRECATION")
-    private fun legacyLargeIcon(n: Notification): Bitmap? =
-        if (Build.VERSION.SDK_INT >= 33) n.extras.getParcelable(Notification.EXTRA_LARGE_ICON, Bitmap::class.java)
-        else n.extras.getParcelable(Notification.EXTRA_LARGE_ICON)
 
     /**
      * Encodes the icon as `{ w, h, format: "ga44", data }`: one byte per pixel, row by row,

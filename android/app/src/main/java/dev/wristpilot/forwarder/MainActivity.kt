@@ -12,7 +12,6 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.Switch
 import android.widget.TextView
-import androidx.core.content.FileProvider
 import java.io.File
 
 /**
@@ -109,18 +108,9 @@ class MainActivity : Activity() {
             recordings.addView(Button(this).apply {
                 text = file.name
                 isAllCaps = false
-                setOnClickListener { share(file) }
+                setOnClickListener { startActivity(DriveRecorder.shareIntent(this@MainActivity, file)) }
             })
         }
-    }
-
-    private fun share(file: File) {
-        val uri = FileProvider.getUriForFile(this, "$packageName.recordings", file)
-        val send = Intent(Intent.ACTION_SEND)
-            .setType("application/octet-stream")
-            .putExtra(Intent.EXTRA_STREAM, uri)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        startActivity(Intent.createChooser(send, "Share ${file.name}"))
     }
 
     private fun hasNotificationAccess(): Boolean {

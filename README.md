@@ -72,7 +72,7 @@ Android 15 blocks notification access for apps installed outside a store until y
 
 To see what Google Maps actually sends: `adb logcat -s WristpilotListener` (one line per post or removal, with its category and ongoing flag).
 
-## Recording drives (test fixtures)
+## Drive Recordings (test fixtures)
 
 The Guidance core is tested against real drives recorded on the Navigation Phone.
 

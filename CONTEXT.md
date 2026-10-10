@@ -39,3 +39,7 @@ _Avoid_: Idle screen, empty state
 **Stale Turn Card**:
 A Turn Card whose Maneuver can no longer be trusted because the watch has lost contact with the Navigation Phone. Shown greyed out.
 _Avoid_: Offline card, cached card
+
+**Drive Recording**:
+A file of every Google Maps notification the Android forwarder saw while "Record drive" was switched on, kept as a test fixture for the Guidance core. It may hold part of a Navigation Session, one, or several.
+_Avoid_: Trace, log, capture
