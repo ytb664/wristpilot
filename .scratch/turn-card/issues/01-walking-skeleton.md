@@ -6,10 +6,10 @@
 
 **Status:** in-progress
 
-- [ ] Repo contains an Android (Kotlin) project for the forwarder and a Zepp OS project (device app + side service) targeting the Active Max (deviceSource 10813697, 10813699, API level 4.2, round 480×480).
-- [ ] A Guidance core module exists in the side service as a pure function boundary (snapshots + time in → Turn Card View + Buzz commands out), with a test runner wired up and one passing placeholder test through that boundary.
-- [ ] The Android forwarder asks for notification access, listens only to Google Maps (`com.google.android.apps.maps`) navigation notifications, and forwards each post/removal as a Raw Guidance Snapshot (text extras, ongoing flag, category, timestamp, key) over a local WebSocket server on the phone.
-- [ ] The side service connects to that local WebSocket, passes snapshots through the Guidance core (which for now just echoes the title text), and sends the result to the watch.
-- [ ] The watch app shows the received text on a simple screen and the Waiting Screen text when nothing has arrived.
-- [ ] README explains how to build and sideload both parts (Zepp Developer Mode / `zeus preview`, debug APK) and how to allow restricted settings + grant notification access on Android 15.
-- [ ] Manual check (by the user): start directions in Google Maps → instruction text appears on the watch and changes as you move.
+- [x] Repo contains an Android (Kotlin) project for the forwarder and a Zepp OS project (device app + side service) targeting the Active Max (deviceSource 10813697, 10813699, API level 4.2, round 480×480).
+- [x] A Guidance core module exists in the side service as a pure function boundary (snapshots + time in → Turn Card View + Buzz commands out), with a test runner wired up and one passing placeholder test through that boundary.
+- [x] The Android forwarder asks for notification access, listens only to Google Maps (`com.google.android.apps.maps`) navigation notifications, and forwards each post/removal as a Raw Guidance Snapshot (text extras, ongoing flag, category, timestamp, key) over a local WebSocket server on the phone. _(The forwarder filters by package only; deciding which Maps notifications are guidance happens in the Guidance core, to keep navigation logic out of the forwarder.)_
+- [x] The side service connects to that local WebSocket, passes snapshots through the Guidance core (which for now just echoes the title text), and sends the result to the watch.
+- [x] The watch app shows the received text on a simple screen and the Waiting Screen text when nothing has arrived.
+- [x] README explains how to build and sideload both parts (Zepp Developer Mode / `zeus preview`, debug APK) and how to allow restricted settings + grant notification access on Android 15.
+- [ ] Manual check (by the user): start directions in Google Maps → instruction text appears on the watch and changes as you move. **Waiting on the user.**
