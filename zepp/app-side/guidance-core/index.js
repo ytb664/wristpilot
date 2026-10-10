@@ -4,7 +4,8 @@
 //
 // Output: { view, buzzes }. view is null when the watch should stay as it is.
 //
-// Walking skeleton (ticket 01): the Turn Card just echoes the notification title.
+// Walking skeleton (ticket 01): the Turn Card just echoes the notification's
+// title (Google Maps puts the distance there) and text (the turn and street).
 
 export function createGuidanceCore() {
   return {
@@ -16,7 +17,7 @@ export function createGuidanceCore() {
         return { view: { screen: 'waiting' }, buzzes: [] }
       }
       return {
-        view: { screen: 'turn', maneuverText: snapshot.title },
+        view: { screen: 'turn', maneuverText: rawText(snapshot) },
         buzzes: [],
       }
     },
@@ -28,4 +29,8 @@ export function createGuidanceCore() {
 // against recorded drives.
 function isGuidance(snapshot) {
   return snapshot.category === 'navigation' || snapshot.ongoing === true
+}
+
+function rawText(snapshot) {
+  return [snapshot.title, snapshot.text].filter(Boolean).join('\n')
 }

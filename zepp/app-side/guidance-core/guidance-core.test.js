@@ -19,16 +19,13 @@ function posted(fields) {
   }
 }
 
-test('a Google Maps navigation notification shows its title on the Turn Card', () => {
+test('a Google Maps navigation notification shows its distance and instruction on the Turn Card', () => {
   const core = createGuidanceCore()
 
-  const out = core.receive(
-    posted({ title: 'Turn right onto Jl. Sudirman', text: '13 min · 3.5 km · 14:32 ETA' }),
-    1_000,
-  )
+  const out = core.receive(posted({ title: '350 m', text: 'Turn right onto Jl. Sudirman' }), 1_000)
 
   assert.deepEqual(out, {
-    view: { screen: 'turn', maneuverText: 'Turn right onto Jl. Sudirman' },
+    view: { screen: 'turn', maneuverText: '350 m\nTurn right onto Jl. Sudirman' },
     buzzes: [],
   })
 })
