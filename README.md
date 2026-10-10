@@ -62,11 +62,13 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk   # or copy the APK to 
 
 ### Android 15 / HyperOS 2: notification access for a sideloaded app
 
-Android 15 blocks notification access for apps installed outside a store until you allow restricted settings:
+Android 15 blocks notification access for apps installed outside a store until you allow restricted settings. This only applies when you open the APK from a browser, chat app or file manager. An `adb install` is not restricted, so if you installed that way, skip step 2.
 
 1. Open **Wristpilot** on the phone and tap **Grant notification access**. If Wristpilot is greyed out or you see "Restricted setting", go back.
 2. Settings → Apps → Manage apps → **Wristpilot** → ⋮ (top right) → **Allow restricted settings** → confirm.
 3. Tap **Grant notification access** again and switch on Wristpilot.
 4. The Wristpilot screen now shows "✓ Notification access granted". Once Wristpilot is open on the watch it shows "✓ Watch link up".
+
+To see what Google Maps actually sends: `adb logcat -s WristpilotListener` (one line per post or removal, with its category and ongoing flag).
 
 (The full HyperOS survival checklist, covering autostart, battery saver and locking in Recents, comes with ticket 07.)

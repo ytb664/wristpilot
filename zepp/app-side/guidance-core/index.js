@@ -9,16 +9,23 @@
 export function createGuidanceCore() {
   return {
     receive(snapshot, now) {
-      if (snapshot.category !== 'navigation') {
+      if (!isGuidance(snapshot)) {
         return { view: null, buzzes: [] }
       }
       if (snapshot.event === 'removed') {
         return { view: { screen: 'waiting' }, buzzes: [] }
       }
       return {
-        view: { screen: 'turn', instructionText: snapshot.title },
+        view: { screen: 'turn', maneuverText: snapshot.title },
         buzzes: [],
       }
     },
   }
+}
+
+// Unverified on the Navigation Phone whether Google Maps sets the navigation
+// category, so its ongoing notification counts too. Ticket 03 refines this
+// against recorded drives.
+function isGuidance(snapshot) {
+  return snapshot.category === 'navigation' || snapshot.ongoing === true
 }

@@ -28,7 +28,7 @@ test('a Google Maps navigation notification shows its title on the Turn Card', (
   )
 
   assert.deepEqual(out, {
-    view: { screen: 'turn', instructionText: 'Turn right onto Jl. Sudirman' },
+    view: { screen: 'turn', maneuverText: 'Turn right onto Jl. Sudirman' },
     buzzes: [],
   })
 })
@@ -51,4 +51,12 @@ test('a Google Maps notification that is not navigation guidance leaves the watc
   )
 
   assert.deepEqual(out, { view: null, buzzes: [] })
+})
+
+test('an ongoing Google Maps notification without a navigation category still counts as guidance', () => {
+  const core = createGuidanceCore()
+
+  const out = core.receive(posted({ title: '350 m', category: null, ongoing: true }), 1_000)
+
+  assert.deepEqual(out, { view: { screen: 'turn', maneuverText: '350 m' }, buzzes: [] })
 })

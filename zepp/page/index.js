@@ -32,9 +32,10 @@ Page(
     },
 
     show(view) {
+      // No view yet: keep the Waiting Screen.
       if (!view) return
-      const text = view.screen === 'turn' ? view.instructionText : WAITING_TEXT
-      this.text.setProperty(hmUI.prop.TEXT, text || WAITING_TEXT)
+      const text = view.screen === 'turn' ? view.maneuverText : WAITING_TEXT
+      this.text.setProperty(hmUI.prop.TEXT, text)
     },
   }),
 )

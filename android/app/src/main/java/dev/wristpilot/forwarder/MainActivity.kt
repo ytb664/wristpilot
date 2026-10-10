@@ -62,10 +62,12 @@ class MainActivity : Activity() {
         val granted = hasNotificationAccess()
         access.text = if (granted) "✓ Notification access granted" else "✗ Notification access not granted"
         grant.isEnabled = !granted
-        val clients = MapsNotificationListener.server?.clientCount ?: 0
+        val server = MapsNotificationListener.server
         link.text = when {
             !granted -> "✗ Watch link down (needs notification access)"
-            clients > 0 -> "✓ Watch link up"
+            server == null || !server.isRunning ->
+                "✗ Watch link down: forwarder not listening on port ${SnapshotServer.PORT}"
+            server.clientCount > 0 -> "✓ Watch link up"
             else -> "… Waiting for Wristpilot on the watch to connect"
         }
     }

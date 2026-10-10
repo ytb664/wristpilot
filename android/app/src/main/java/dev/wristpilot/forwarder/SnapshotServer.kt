@@ -8,12 +8,18 @@ import org.json.JSONObject
 import java.net.InetSocketAddress
 
 /**
- * Local WebSocket server the Zepp side service connects to (ws://127.0.0.1:8786).
+ * Local WebSocket server the Zepp side service connects to (ws://127.0.0.1:[PORT]).
  * Broadcasts every snapshot; a newly connected client first gets the latest snapshot
  * of each Google Maps notification still showing, so it can pick up mid-session.
  */
 class SnapshotServer : WebSocketServer(InetSocketAddress("127.0.0.1", PORT)) {
-    private val showing = LinkedHashMap<String, String>()
+    /** Latest snapshot JSON of each Google Maps notification still showing, by notification key. */
+    private val latestByKey = LinkedHashMap<String, String>()
+
+    /** False until the port is bound, and again if binding fails. */
+    @Volatile
+    var isRunning = false
+        private set
 
     init {
         isReuseAddr = true
@@ -21,18 +27,19 @@ class SnapshotServer : WebSocketServer(InetSocketAddress("127.0.0.1", PORT)) {
 
     fun forward(snapshot: JSONObject) {
         val json = snapshot.toString()
-        synchronized(showing) {
+        // Broadcast under the lock so a client connecting meanwhile never gets a stale replay.
+        synchronized(latestByKey) {
             val key = snapshot.getString("key")
-            if (snapshot.getString("event") == "removed") showing.remove(key) else showing[key] = json
+            if (snapshot.getString("event") == "removed") latestByKey.remove(key) else latestByKey[key] = json
+            broadcast(json)
         }
-        broadcast(json)
     }
 
     val clientCount: Int get() = connections.size
 
     override fun onOpen(conn: WebSocket, handshake: ClientHandshake) {
         Log.i(TAG, "side service connected")
-        synchronized(showing) { showing.values.forEach(conn::send) }
+        synchronized(latestByKey) { latestByKey.values.forEach(conn::send) }
     }
 
     override fun onClose(conn: WebSocket, code: Int, reason: String?, remote: Boolean) {
@@ -42,10 +49,13 @@ class SnapshotServer : WebSocketServer(InetSocketAddress("127.0.0.1", PORT)) {
     override fun onMessage(conn: WebSocket, message: String) {}
 
     override fun onError(conn: WebSocket?, ex: Exception) {
+        // conn == null means the server itself failed (e.g. the port is taken).
+        if (conn == null) isRunning = false
         Log.w(TAG, "websocket error", ex)
     }
 
     override fun onStart() {
+        isRunning = true
         Log.i(TAG, "listening on 127.0.0.1:$PORT")
     }
 

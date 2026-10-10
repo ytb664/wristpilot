@@ -1,6 +1,7 @@
 package dev.wristpilot.forwarder
 
 import android.service.notification.NotificationListenerService
+import android.util.Log
 import android.service.notification.StatusBarNotification
 
 /** Forwards every Google Maps notification post and removal as a Raw Guidance Snapshot. */
@@ -31,16 +32,22 @@ class MapsNotificationListener : NotificationListenerService() {
     private fun isFromMaps(sbn: StatusBarNotification) = sbn.packageName == GOOGLE_MAPS
 
     private fun forward(event: String, sbn: StatusBarNotification) {
-        server?.forward(RawGuidanceSnapshot.from(event, sbn, System.currentTimeMillis()))
+        val snapshot = RawGuidanceSnapshot.from(event, sbn, System.currentTimeMillis())
+        // Lets the user check on the phone what Google Maps really sends (adb logcat -s WristpilotListener).
+        Log.d(TAG, "$event category=${sbn.notification.category} ongoing=${sbn.isOngoing}")
+        server?.forward(snapshot)
     }
 
     private fun stopServer() {
-        server?.stop(500)
+        val stopping = server ?: return
         server = null
+        // stop() blocks while closing connections; keep it off the main thread.
+        Thread { stopping.stop(500) }.start()
     }
 
     companion object {
         const val GOOGLE_MAPS = "com.google.android.apps.maps"
+        private const val TAG = "WristpilotListener"
 
         @Volatile
         var server: SnapshotServer? = null

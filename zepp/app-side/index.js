@@ -10,7 +10,7 @@ AppSideService(
   BaseSideService({
     onInit() {
       this.core = createGuidanceCore()
-      this.currentView = { screen: 'waiting' }
+      this.currentView = null
       this.connect()
     },
 
