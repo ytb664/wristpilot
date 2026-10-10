@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** in-progress
+**Status:** done
 
 - [x] Repo contains an Android (Kotlin) project for the forwarder and a Zepp OS project (device app + side service) targeting the Active Max (deviceSource 10813697, 10813699, API level 4.2, round 480×480).
 - [x] A Guidance core module exists in the side service as a pure function boundary (snapshots + time in → Turn Card View + Buzz commands out), with a test runner wired up and one passing placeholder test through that boundary.
@@ -12,4 +12,10 @@
 - [x] The side service connects to that local WebSocket, passes snapshots through the Guidance core (which for now just echoes the title text), and sends the result to the watch.
 - [x] The watch app shows the received text on a simple screen and the Waiting Screen text when nothing has arrived.
 - [x] README explains how to build and sideload both parts (Zepp Developer Mode / `zeus preview`, debug APK) and how to allow restricted settings + grant notification access on Android 15.
-- [ ] Manual check (by the user): start directions in Google Maps → instruction text appears on the watch and changes as you move. **Waiting on the user.**
+- [x] Manual check (by the user): start directions in Google Maps → instruction text appears on the watch and changes as you move. _(Passed 2026-10-11 on the Redmi 13C + Active Max.)_
+
+## Findings from the manual check
+
+- On the Navigation Phone, Google Maps puts the **distance in the notification title** (e.g. "0 m" at the start) and the **turn and street in the text**. Ticket 03's parsing should start from that layout.
+- The watch page needs the `data:os.device.info` permission (ZML and `getDeviceInfo()` use it); without it the page is a black screen.
+- A file-manager install hits Play Protect and Android 15's restricted settings; installing over adb, or granting access with `adb shell cmd notification allow_listener dev.wristpilot.forwarder/dev.wristpilot.forwarder.MapsNotificationListener`, gets around both.
