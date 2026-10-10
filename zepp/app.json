@@ -1,0 +1,46 @@
+{
+  "configVersion": "v3",
+  "app": {
+    "appId": 1099001,
+    "appName": "Wristpilot",
+    "appType": "app",
+    "version": {
+      "code": 1,
+      "name": "0.1.0"
+    },
+    "icon": "icon.png",
+    "vender": "wristpilot",
+    "description": "Google Maps turn-by-turn guidance on the wrist"
+  },
+  "permissions": [],
+  "runtime": {
+    "apiVersion": {
+      "compatible": "4.2",
+      "target": "4.2",
+      "minVersion": "4.2"
+    }
+  },
+  "debug": false,
+  "targets": {
+    "default": {
+      "module": {
+        "page": {
+          "pages": ["page/index"]
+        },
+        "app-side": {
+          "path": "app-side/index"
+        }
+      },
+      "platforms": [
+        { "st": "r", "dw": 480, "deviceSource": 10813697 },
+        { "st": "r", "dw": 480, "deviceSource": 10813699 }
+      ]
+    }
+  },
+  "i18n": {
+    "en-US": {
+      "appName": "Wristpilot"
+    }
+  },
+  "defaultLanguage": "en-US"
+}

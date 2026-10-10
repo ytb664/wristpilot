@@ -4,7 +4,7 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Repo contains an Android (Kotlin) project for the forwarder and a Zepp OS project (device app + side service) targeting the Active Max (deviceSource 10813697, 10813699, API level 4.2, round 480×480).
 - [ ] A Guidance core module exists in the side service as a pure function boundary (snapshots + time in → Turn Card View + Buzz commands out), with a test runner wired up and one passing placeholder test through that boundary.

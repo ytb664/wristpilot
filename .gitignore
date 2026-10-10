@@ -1,0 +1,14 @@
+node_modules/
+zepp/dist/
+.DS_Store
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.kotlin/
+*.apk
+
+# Local isolated toolchain (conda env lives outside the repo)
+.tooling/
