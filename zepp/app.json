@@ -12,7 +12,7 @@
     "vender": "wristpilot",
     "description": "Google Maps turn-by-turn guidance on the wrist"
   },
-  "permissions": [],
+  "permissions": ["data:os.device.info"],
   "runtime": {
     "apiVersion": {
       "compatible": "4.2",
