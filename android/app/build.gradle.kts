@@ -26,4 +26,5 @@ android {
 
 dependencies {
     implementation("org.java-websocket:Java-WebSocket:1.5.7")
+    implementation("androidx.core:core:1.13.1")
 }

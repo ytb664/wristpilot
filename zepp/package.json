@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
+    "timeline": "node scripts/timeline.js",
     "build": "zeus build",
     "preview": "zeus preview",
     "dev": "zeus dev"

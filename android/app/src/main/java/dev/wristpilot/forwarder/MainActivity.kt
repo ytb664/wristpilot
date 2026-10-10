@@ -9,14 +9,23 @@ import android.os.Looper
 import android.provider.Settings
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.Switch
 import android.widget.TextView
+import androidx.core.content.FileProvider
+import java.io.File
 
-/** One-screen status: is notification access granted, and is the watch link up. */
+/**
+ * One-screen status: is notification access granted, and is the watch link up.
+ * Also the developer's drive recorder: a "Record drive" switch and the recordings to share.
+ */
 class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var access: TextView
     private lateinit var link: TextView
     private lateinit var grant: Button
+    private lateinit var recordings: LinearLayout
+    private var shownRecordings: List<File>? = null
 
     private val refresh = object : Runnable {
         override fun run() {
@@ -38,13 +47,30 @@ class MainActivity : Activity() {
             text = "Android 15: if Wristpilot is greyed out in the list, open App info → ⋮ → " +
                 "Allow restricted settings, then try again."
         }
-        setContentView(LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(pad, pad, pad, pad)
-            addView(access)
-            addView(link)
-            addView(grant)
-            addView(hint)
+        val record = Switch(this).apply {
+            text = "Record drive"
+            textSize = 18f
+            setPadding(0, pad, 0, pad / 2)
+            isChecked = DriveRecorder.isOn(this@MainActivity)
+            setOnCheckedChangeListener { _, on -> DriveRecorder.setOn(this@MainActivity, on) }
+        }
+        val recordHint = TextView(this).apply {
+            text = "Switch on before a drive and off after it: each recording is one file. " +
+                "Tap a recording to share it."
+        }
+        recordings = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        setContentView(ScrollView(this).apply {
+            addView(LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(pad, pad, pad, pad)
+                addView(access)
+                addView(link)
+                addView(grant)
+                addView(hint)
+                addView(record)
+                addView(recordHint)
+                addView(recordings)
+            })
         })
     }
 
@@ -70,6 +96,31 @@ class MainActivity : Activity() {
             server.clientCount > 0 -> "✓ Watch link up"
             else -> "… Waiting for Wristpilot on the watch to connect"
         }
+        renderRecordings()
+    }
+
+    private fun renderRecordings() {
+        val files = DriveRecorder.recordings(this)
+        // Rebuild only when the list changes, so a tap isn't lost to the 1 s refresh.
+        if (files == shownRecordings) return
+        shownRecordings = files
+        recordings.removeAllViews()
+        files.forEach { file ->
+            recordings.addView(Button(this).apply {
+                text = file.name
+                isAllCaps = false
+                setOnClickListener { share(file) }
+            })
+        }
+    }
+
+    private fun share(file: File) {
+        val uri = FileProvider.getUriForFile(this, "$packageName.recordings", file)
+        val send = Intent(Intent.ACTION_SEND)
+            .setType("application/octet-stream")
+            .putExtra(Intent.EXTRA_STREAM, uri)
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        startActivity(Intent.createChooser(send, "Share ${file.name}"))
     }
 
     private fun hasNotificationAccess(): Boolean {

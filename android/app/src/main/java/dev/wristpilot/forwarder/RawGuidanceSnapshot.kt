@@ -1,18 +1,32 @@
 package dev.wristpilot.forwarder
 
 import android.app.Notification
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.drawable.BitmapDrawable
+import android.graphics.drawable.Drawable
+import android.os.Build
 import android.service.notification.StatusBarNotification
+import android.util.Base64
 import org.json.JSONArray
 import org.json.JSONObject
 
 /**
  * A Raw Guidance Snapshot: Google Maps' notification copied as-is, never interpreted.
  * The Guidance core in the Zepp side service does all the parsing.
+ *
+ * Format history (recorded drives keep whatever version they were made with):
+ *  - v1: event, at, key, text extras, ongoing, category.
+ *  - v2: adds `icon`, the notification's large icon (the Maneuver arrow), or null.
  */
 object RawGuidanceSnapshot {
-    const val FORMAT_VERSION = 1
+    const val FORMAT_VERSION = 2
 
-    fun from(event: String, sbn: StatusBarNotification, at: Long): JSONObject {
+    /** The large icon is downscaled to ICON_SIZE × ICON_SIZE pixels. */
+    const val ICON_SIZE = 48
+
+    fun from(context: Context, event: String, sbn: StatusBarNotification, at: Long): JSONObject {
         val n = sbn.notification
         val extras = n.extras
         val lines = JSONArray()
@@ -29,5 +43,48 @@ object RawGuidanceSnapshot {
             .put("textLines", lines)
             .put("ongoing", sbn.isOngoing)
             .put("category", n.category ?: JSONObject.NULL)
+            .put("icon", largeIcon(context, n)?.let(::encodeIcon) ?: JSONObject.NULL)
+    }
+
+    private fun largeIcon(context: Context, n: Notification): Drawable? = try {
+        n.getLargeIcon()?.loadDrawable(context)
+            ?: legacyLargeIcon(n)?.let { BitmapDrawable(context.resources, it) }
+    } catch (e: Exception) {
+        // A broken icon must never stop the text from being forwarded.
+        null
+    }
+
+    @Suppress("DEPRECATION")
+    private fun legacyLargeIcon(n: Notification): Bitmap? =
+        if (Build.VERSION.SDK_INT >= 33) n.extras.getParcelable(Notification.EXTRA_LARGE_ICON, Bitmap::class.java)
+        else n.extras.getParcelable(Notification.EXTRA_LARGE_ICON)
+
+    /**
+     * Encodes the icon as `{ w, h, format: "ga44", data }`: one byte per pixel, row by row,
+     * high nibble = gray level (0 black … 15 white), low nibble = alpha (0 transparent … 15 opaque),
+     * base64-encoded.
+     */
+    private fun encodeIcon(drawable: Drawable): JSONObject {
+        val bitmap = Bitmap.createBitmap(ICON_SIZE, ICON_SIZE, Bitmap.Config.ARGB_8888)
+        drawable.setBounds(0, 0, ICON_SIZE, ICON_SIZE)
+        drawable.draw(Canvas(bitmap))
+        val pixels = IntArray(ICON_SIZE * ICON_SIZE)
+        bitmap.getPixels(pixels, 0, ICON_SIZE, 0, 0, ICON_SIZE, ICON_SIZE)
+        bitmap.recycle()
+        val bytes = ByteArray(pixels.size) { i ->
+            val p = pixels[i]
+            val a = p ushr 24
+            val r = (p shr 16) and 0xff
+            val g = (p shr 8) and 0xff
+            val b = p and 0xff
+            // getPixels() returns non-premultiplied colours, so this is the drawn colour's gray.
+            val gray = (299 * r + 587 * g + 114 * b) / 1000
+            ((gray shr 4 shl 4) or (a shr 4)).toByte()
+        }
+        return JSONObject()
+            .put("w", ICON_SIZE)
+            .put("h", ICON_SIZE)
+            .put("format", "ga44")
+            .put("data", Base64.encodeToString(bytes, Base64.NO_WRAP))
     }
 }

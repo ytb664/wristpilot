@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Walking skeleton).
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Raw Guidance Snapshot gains the arrow icon as a small fixed-size bitmap (e.g. 48×48, compact grayscale/alpha encoding) and a format version field; it's also forwarded live over the WebSocket.
 - [ ] The forwarder's screen has a "Record drive" toggle; recordings are saved as one file per drive and can be shared/exported off the phone.

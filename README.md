@@ -8,6 +8,7 @@ zepp/      Zepp OS project
   app-side/                side service: WebSocket → Guidance core → watch
   app-side/guidance-core/  Guidance core: all navigation logic, pure, tested
   page/                    watch app: renders the Turn Card View it receives
+zepp/scripts/timeline.js   prints a drive recording as a readable timeline
 scripts/env.sh             puts the project-local Android toolchain on PATH
 ```
 
@@ -70,5 +71,23 @@ Android 15 blocks notification access for apps installed outside a store until y
 4. The Wristpilot screen now shows "✓ Notification access granted". Once Wristpilot is open on the watch it shows "✓ Watch link up".
 
 To see what Google Maps actually sends: `adb logcat -s WristpilotListener` (one line per post or removal, with its category and ongoing flag).
+
+## Recording drives (test fixtures)
+
+The Guidance core is tested against real drives recorded on the Navigation Phone.
+
+1. Open **Wristpilot** on the phone and switch **Record drive** on before you start directions.
+2. Drive with Google Maps as usual. Every Google Maps notification post and removal is saved, including a 48×48 copy of the Maneuver arrow.
+3. Switch **Record drive** off when you're done. Each on/off is one file, `drive-YYYYMMDD-HHMMSS.jsonl` (one Raw Guidance Snapshot per line).
+4. Get it off the phone: tap the recording in the list to share it (Drive, Telegram, email…), or over USB:
+   ```sh
+   adb pull /sdcard/Android/data/dev.wristpilot.forwarder/files/recordings/
+   ```
+5. Read it:
+   ```sh
+   cd zepp && npm run timeline -- path/to/drive-20261011-081500.jsonl
+   ```
+
+Committed recordings live in `zepp/app-side/guidance-core/fixtures/`, indexed in its README.
 
 (The full HyperOS survival checklist, covering autostart, battery saver and locking in Recents, comes with ticket 07.)
