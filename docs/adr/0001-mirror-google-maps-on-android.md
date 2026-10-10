@@ -1,0 +1,3 @@
+# Mirror Google Maps on Android instead of doing our own routing
+
+Wristpilot reads the guidance Google Maps already shows on an Android phone and relays it to the watch; it does not plan routes. On iPhone this is impossible: iOS lets no app read another app's notifications or navigation state, and Google Maps exposes none (see `docs/research/zepp-os-iphone-navigation-feasibility.md`). Android allows reading notifications with user permission, and existing open-source bridges prove the approach. We chose this over our own Mapbox-based routing (which would work on iPhone) because the goal is to keep using Google Maps as the Navigator. As a result, the watch must stay paired with an Android phone.
