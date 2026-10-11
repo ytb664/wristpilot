@@ -19,7 +19,10 @@
 
 - The Stale Turn Card only replaces a Turn Card: the Waiting Screen and "Arrived" are never shown stale.
 - The watch only starts its stale clock at the first message: opened with no contact, it shows the Waiting Screen.
-- Relaunch-on-wake is not reset when the page is destroyed: the system closing Wristpilot while the screen is off destroys the page too, and waking the watch must still reopen it. It is reset when the session ends.
+- Relaunch-on-wake is not reset when the page is destroyed: the system closing Wristpilot while the screen is off destroys the page too, and waking the watch must still reopen it. It is reset when the session ends, and whenever the page opens, so a button press that closes Wristpilot mid-session costs at most one unwanted reopen.
+- A Turn Card stale for 10 minutes stops keeping the screen on (`STALE_GIVE_UP_MS`): the session may have ended on the phone unheard. The next message turns it back on.
+- The heartbeat also stops when the Android forwarder disconnects from the side service, so a dead forwarder shows the Stale Turn Card even with Bluetooth fine.
+- Opened while the phone is out of reach, the watch shows the Waiting Screen, not a Stale Turn Card.
 - Unverified: whether the side service's WebSocket fires `onopen`; a snapshot also marks the forwarder as connected, so heartbeats start with the first snapshot either way.
 
 ## Noted in ticket 04's code review

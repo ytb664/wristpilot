@@ -25,14 +25,15 @@ AppSideService(
       this.showOnWatch(this.core.tick(now))
       // Only while the forwarder is connected: without it guidance can't arrive, and the watch
       // should show the Stale Turn Card rather than trust the last Maneuver.
+      // Only a Turn Card can go stale on the watch, so only a Turn Card needs the heartbeat.
       const view = this.core.current()
-      const inSession = view && view.screen !== 'waiting'
-      if (inSession && this.forwarderUp && now - this.lastSentAt >= HEARTBEAT_MS) {
-        this.send({ method: 'turnCard.heartbeat' })
+      const onTurn = view && view.screen === 'turn'
+      if (onTurn && this.forwarderUp && now - this.lastSentAt >= HEARTBEAT_MS) {
+        this.callWatch({ method: 'turnCard.heartbeat' })
       }
     },
 
-    send(message) {
+    callWatch(message) {
       this.lastSentAt = Date.now()
       this.call(message)
     },
@@ -66,8 +67,8 @@ AppSideService(
     },
 
     showOnWatch({ view, buzzes }) {
-      if (view) this.send({ method: 'turnCard.view', params: forWatch(view) })
-      for (const buzz of buzzes) this.send({ method: 'turnCard.buzz', params: { buzz } })
+      if (view) this.callWatch({ method: 'turnCard.view', params: forWatch(view) })
+      for (const buzz of buzzes) this.callWatch({ method: 'turnCard.buzz', params: { buzz } })
     },
 
     onRequest(req, res) {

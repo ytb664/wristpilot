@@ -29,6 +29,9 @@ const STALE_DIM = 0.35
 const STALE_MARK_COLOR = 0xff5040
 // How often the page checks whether the Turn Card has gone stale.
 const STALE_CHECK_MS = 1000
+// A Turn Card stale this long gives up keeping the screen on: the Navigation Session may have
+// ended on the phone without the watch hearing of it. The next message turns it back on.
+const STALE_GIVE_UP_MS = 10 * 60 * 1000
 // setPageBrightTime's longest bright time (about 24 days): the whole Navigation Session.
 const BRIGHT_FOR_SESSION_MS = 2147483000
 
@@ -84,7 +87,11 @@ Page(
       this.staleTimer = createStaleTimer()
       this.staleCheck = setInterval(() => this.checkStale(), STALE_CHECK_MS)
       this.awake = false
-      // A stray swipe mustn't close the Turn Card mid-drive; the button still leaves.
+      // Relaunch-on-wake outlives the page (see onDestroy), so it starts off and comes on only
+      // with a Turn Card: reopened outside a Navigation Session (e.g. after the button closed
+      // Wristpilot mid-session), waking the watch shows the watch face again.
+      setWakeUpRelaunch({ relaunch: false })
+      // A stray swipe mustn't close the Turn Card during a Navigation Session; the button still leaves.
       onGesture({ callback: (event) => this.awake && event === GESTURE_RIGHT })
       // The Waiting Screen and "Arrived".
       this.message = hmUI.createWidget(hmUI.widget.TEXT, {
@@ -128,13 +135,16 @@ Page(
     },
 
     checkStale() {
-      this.setStale(this.onTurn && this.staleTimer.isStale(Date.now()))
+      const now = Date.now()
+      this.setStale(this.onTurn && this.staleTimer.isStale(now))
+      if (this.showsStale && now - this.staleSince >= STALE_GIVE_UP_MS) this.keepAwake(false)
     },
 
     // The Stale Turn Card is the Turn Card dimmed, with the "disconnected" mark.
     setStale(stale) {
       if (stale === this.showsStale) return
       this.showsStale = stale
+      if (stale) this.staleSince = Date.now()
       for (const [widget, color] of this.dimmable) {
         widget.setProperty(hmUI.prop.COLOR, stale ? dim(color) : color)
       }
@@ -153,9 +163,7 @@ Page(
         pauseDropWristScreenOff({ duration: 0 })
         pausePalmScreenOff({ duration: 0 })
       } else {
-        resetPageBrightTime()
-        resetDropWristScreenOff()
-        resetPalmScreenOff()
+        restoreScreenOff()
       }
       setWakeUpRelaunch({ relaunch: awake })
     },
@@ -174,11 +182,7 @@ Page(
       offGesture()
       // Relaunch-on-wake is left as it is: the system closing Wristpilot while the screen is
       // off also destroys the page, and waking the watch must still reopen it.
-      if (this.awake) {
-        resetPageBrightTime()
-        resetDropWristScreenOff()
-        resetPalmScreenOff()
-      }
+      if (this.awake) restoreScreenOff()
     },
 
     // Google Maps' arrow as rects from the side service: { w, h, rects: [x, y, w, h, level, ...] },
@@ -231,6 +235,12 @@ Page(
     },
   }),
 )
+
+function restoreScreenOff() {
+  resetPageBrightTime()
+  resetDropWristScreenOff()
+  resetPalmScreenOff()
+}
 
 function dim(color) {
   const channel = (shift) => Math.round(((color >> shift) & 0xff) * STALE_DIM) << shift
