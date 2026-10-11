@@ -16,7 +16,7 @@
 - [x] Reroutes update the Turn Card to the new Maneuver.
 - [x] Watch layout on 480×480 round: arrow top, large distance, street, small trip line (`zeus build` passes).
 - [ ] Manual check (by the user): the Turn Card layout is readable on the watch. _(checked in ticket 09)_
-- [ ] Manual check (by the user): a real drive shows correct distance/street/ETA on the watch. _(checked in ticket 09)_
+- [x] Manual check (by the user): a real drive shows correct distance/street/ETA on the watch. _(checked in ticket 09, 2026-10-11: the street "with eta and estimated time", "the correct distance left", then "the direction works perfectly")_
 
 ## Seen in a real recording (ticket 02, 2026-10-11)
 
