@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.service.notification.NotificationListenerService
 import android.view.Gravity
 import android.view.ViewGroup
 import android.widget.Button
@@ -29,6 +30,7 @@ class MainActivity : Activity() {
     private lateinit var grant: Button
     private lateinit var recordings: LinearLayout
     private var shownRecordings: List<File>? = null
+    private var lastRebindAt = 0L
 
     private val refresh = object : Runnable {
         override fun run() {
@@ -110,8 +112,13 @@ class MainActivity : Activity() {
         val server = MapsNotificationListener.server
         link.text = when {
             !granted -> "✗ Watch link down (needs notification access)"
-            server == null || !server.isRunning ->
-                "✗ Watch link down: forwarder not listening on port ${SnapshotServer.PORT}"
+            server == null -> {
+                requestRebind()
+                "✗ Watch link down: Android hasn't connected Wristpilot to notifications yet. " +
+                    "Reconnecting… If this stays, switch Wristpilot's notification access off and on."
+            }
+            server.hasFailed -> "✗ Watch link down: port ${SnapshotServer.PORT} is busy, retrying…"
+            !server.isRunning -> "… Starting the watch link"
             server.clientCount > 0 -> "✓ Watch link up"
             else -> "… Waiting for Wristpilot on the watch to connect"
         }
@@ -133,9 +140,24 @@ class MainActivity : Activity() {
         }
     }
 
+    /**
+     * Access can be granted while Android still hasn't bound the listener (e.g. HyperOS after
+     * an app update). Ask it to bind, at most every few seconds.
+     */
+    private fun requestRebind() {
+        val now = System.currentTimeMillis()
+        if (now - lastRebindAt < REBIND_EVERY_MS) return
+        lastRebindAt = now
+        NotificationListenerService.requestRebind(ComponentName(this, MapsNotificationListener::class.java))
+    }
+
     private fun hasNotificationAccess(): Boolean {
         val me = ComponentName(this, MapsNotificationListener::class.java).flattenToString()
         val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: ""
         return enabled.split(':').any { it == me }
+    }
+
+    companion object {
+        private const val REBIND_EVERY_MS = 10_000L
     }
 }

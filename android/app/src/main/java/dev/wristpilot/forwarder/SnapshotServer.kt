@@ -12,13 +12,21 @@ import java.net.InetSocketAddress
  * Broadcasts every snapshot; a newly connected client first gets the latest snapshot
  * of each Google Maps notification still showing, so it can pick up mid-session.
  */
-class SnapshotServer : WebSocketServer(InetSocketAddress("127.0.0.1", PORT)) {
+class SnapshotServer(
+    /** Called (on the server's thread) if the port can't be bound; this instance is then dead. */
+    private val onFailed: () -> Unit,
+) : WebSocketServer(InetSocketAddress("127.0.0.1", PORT)) {
     /** Latest snapshot JSON of each Google Maps notification still showing, by notification key. */
     private val latestByKey = LinkedHashMap<String, String>()
 
     /** False until the port is bound, and again if binding fails. */
     @Volatile
     var isRunning = false
+        private set
+
+    /** True once binding the port has failed. */
+    @Volatile
+    var hasFailed = false
         private set
 
     init {
@@ -49,9 +57,13 @@ class SnapshotServer : WebSocketServer(InetSocketAddress("127.0.0.1", PORT)) {
     override fun onMessage(conn: WebSocket, message: String) {}
 
     override fun onError(conn: WebSocket?, ex: Exception) {
-        // conn == null means the server itself failed (e.g. the port is taken).
-        if (conn == null) isRunning = false
         Log.w(TAG, "websocket error", ex)
+        // conn == null means the server itself failed (e.g. the port is taken).
+        if (conn == null && !hasFailed) {
+            isRunning = false
+            hasFailed = true
+            onFailed()
+        }
     }
 
     override fun onStart() {

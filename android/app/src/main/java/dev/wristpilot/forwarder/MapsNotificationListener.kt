@@ -1,24 +1,46 @@
 package dev.wristpilot.forwarder
 
+import android.os.Handler
+import android.os.Looper
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 
 /** Forwards every Google Maps notification post and removal as a Raw Guidance Snapshot. */
 class MapsNotificationListener : NotificationListenerService() {
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onListenerConnected() {
-        if (server == null) server = SnapshotServer().also { it.start() }
+        Log.i(TAG, "listener connected")
+        if (server == null) startServer()
         activeNotifications?.filter(::isFromMaps)?.forEach { forward("posted", it) }
     }
 
     override fun onListenerDisconnected() {
+        Log.i(TAG, "listener disconnected")
+        handler.removeCallbacksAndMessages(null)
         stopServer()
     }
 
     override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
         stopServer()
         super.onDestroy()
+    }
+
+    private fun startServer() {
+        lateinit var started: SnapshotServer
+        started = SnapshotServer(onFailed = {
+            // A WebSocketServer can't be started twice: try a fresh one in a moment.
+            handler.postDelayed({
+                if (server === started) {
+                    server = null
+                    startServer()
+                }
+            }, RETRY_MS)
+        })
+        server = started
+        started.start()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -49,6 +71,7 @@ class MapsNotificationListener : NotificationListenerService() {
     companion object {
         const val GOOGLE_MAPS = "com.google.android.apps.maps"
         private const val TAG = "WristpilotListener"
+        private const val RETRY_MS = 3000L
 
         @Volatile
         var server: SnapshotServer? = null
