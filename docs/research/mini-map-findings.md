@@ -2,6 +2,8 @@
 
 Status: **desk findings done; device measurements pending** (see "Runs on the phone and watch"). The recommendation below is provisional until those runs are filled in.
 
+> **Changed 2026-10-11:** the Mini Map is dropped in favour of the **Map Mirror**: a full-screen (480×480) view of Google Maps' map around the car, copied by screen capture (Option A only), that the driver taps to from the Turn Card. If capture doesn't work on the Redmi, there's no full-screen map (Option B isn't a fallback: no route line). It runs only while the phone is unlocked; locked-phone mirroring via Android Auto is ticket 10. The runs below gain a 480 px and a 240-shown-at-480 frame size; the bar for full-screen frames is set once they're in. The Mini Map text below is kept as it was measured.
+
 The question: should the Mini Map mirror Google Maps' screen (Option A: Android screen capture → crop/scale → watch) or draw our own map around the driver (Option B: phone GPS + map tiles, heading-up, no route line)? The bar (spec, Out of Scope): **at least one update every 2 s, no more than ~2 s lag, readable at a glance on 480×480 in the bottom two-thirds circle.** A wins if it meets it; otherwise B; if neither, no Mini Map.
 
 The prototype lives on branch `prototype/mini-map` (never merged): a Mini Map lab screen in the Android forwarder, a frame pump in the side service, and a lab page on the watch. See "The prototype" at the end.
@@ -74,8 +76,12 @@ Afterwards, `git checkout main` and install both again to get the normal Wristpi
 | B, bytes, palette 216 | | | | | |
 | B, convert | | | | | |
 | A, best transport from above | | | | | |
+| A (Map Mirror), 480 px, best transport | | | | | |
+| A (Map Mirror), 240 px shown at 480, best transport | | | | | |
 
 Lag runs from the GPS fix (B) or the screen frame (A) to the watch confirming it, on the phone's clock; it includes one watch→phone message (ping shown alongside).
+
+Map Mirror also: is 240-shown-at-480 sharp enough to read the route line and street names at a glance? Lock the phone mid-run: does capture stop, and does it resume after unlocking without new consent?
 
 Option A also: what the consent dialog offers (single app?), whether frames are all black (the lab counts them; Google Maps secure window?), and what happens when the phone screen locks or goes off.
 

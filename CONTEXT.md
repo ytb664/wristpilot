@@ -24,9 +24,9 @@ _Avoid_: Direction, step, instruction
 The watch screen that shows the current Maneuver during a Navigation Session.
 _Avoid_: Direction screen, nav view
 
-**Mini Map**:
-A small map of the area around the driver, shown with the Turn Card. Planned after version 1.
-_Avoid_: Map view, minimap
+**Map Mirror**:
+A full-screen view of Google Maps' map around the car, copied from the Navigation Phone's screen, that the driver can switch to from the Turn Card during a Navigation Session. Shows the map only, never Google Maps' own banners or buttons. Planned after version 1.
+_Avoid_: Full-screen map, screen share, Mini Map (the small map under the Turn Card, dropped in favour of the Map Mirror)
 
 **Turn-Now Alert**:
 The double buzz on the watch that signals the driver is about to reach the current Maneuver.
