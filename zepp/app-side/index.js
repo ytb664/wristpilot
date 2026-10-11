@@ -5,6 +5,8 @@ import { createGuidanceCore } from './guidance-core/index.js'
 
 const FORWARDER_URL = 'ws://127.0.0.1:8786'
 const RECONNECT_MS = 3000
+// The Guidance core's sense of time passing without snapshots (e.g. "Arrived" timing out).
+const TICK_MS = 1000
 
 AppSideService(
   BaseSideService({
@@ -12,6 +14,7 @@ AppSideService(
       this.core = createGuidanceCore()
       this.currentView = null
       this.connect()
+      this.tickTimer = setInterval(() => this.showOnWatch(this.core.tick(Date.now())), TICK_MS)
     },
 
     connect() {
@@ -33,7 +36,10 @@ AppSideService(
         console.log('wristpilot: bad snapshot', data)
         return
       }
-      const { view } = this.core.receive(snapshot, Date.now())
+      this.showOnWatch(this.core.receive(snapshot, Date.now()))
+    },
+
+    showOnWatch({ view }) {
       if (!view) return
       this.currentView = view
       this.call({ method: 'turnCard.view', params: view })
@@ -47,6 +53,7 @@ AppSideService(
     onDestroy() {
       this.destroyed = true
       clearTimeout(this.reconnectTimer)
+      clearInterval(this.tickTimer)
       if (this.socket) this.socket.close()
     },
   }),

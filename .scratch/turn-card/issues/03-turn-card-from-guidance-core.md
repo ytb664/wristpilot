@@ -4,7 +4,7 @@
 
 **Blocked by:** 02 (Drive recording).
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Built test-first through the Guidance core seam only: tests replay small hand-written snapshot sequences (shaped like what Google Maps sends: distance in the title, turn and street in the text) and assert the sequence of Turn Card Views. Real recordings are added as fixtures in ticket 09.
 - [ ] Session tracking: session starts on the first navigation snapshot; ends on removal (cancel → Waiting Screen) or arrival ("Arrived" for a few seconds, then Waiting Screen); waypoint arrival keeps the session going.
