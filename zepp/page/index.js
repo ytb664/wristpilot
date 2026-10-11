@@ -38,8 +38,9 @@ const STALE_GIVE_UP_MS = 10 * 60 * 1000
 const BRIGHT_FOR_SESSION_MS = 2147483000
 
 // Every screen's top line: the watch's time and battery (status-line.js), in the narrow band
-// above the arrow; at its middle the circle is ~230 px wide, room for "12:59 · 100%".
-const STATUS = { x: 140, y: 12, w: WIDTH - 280, h: 36, text_size: 28, color: GREY }
+// above the arrow. Low enough that the circle is ~200 px wide at the glyphs' tops, room for
+// "12:59 · 100%" (~170 px at size 26).
+const STATUS = { x: 140, y: 16, w: WIDTH - 280, h: 36, text_size: 26, color: GREY }
 
 // Turn Card layout on the round 480×480 screen, top to bottom. Each row is narrowed to stay
 // inside the circle at its lowest edge. Google Maps' arrow is drawn 1:1 from the forwarder's

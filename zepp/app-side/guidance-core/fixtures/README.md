@@ -7,8 +7,9 @@ The `.jsonl` files here are **local only** (gitignored): they hold the real stre
 What the replay checks, against each recording itself:
 - the Turn Card shows Google Maps' distance, street and arrow;
 - the watch is back on the Waiting Screen after the Navigation Session;
-- every Maneuver first shown beyond 100 m gets one Turn-Now Alert;
-- no new-Maneuver buzz comes within 2 s of another buzz.
+- a new arrow or street with a real distance buzzes as a new Maneuver;
+- the distance dropping from beyond 100 m to 100 m or less gives the Turn-Now Alert;
+- no two buzzes less than 1 s apart, outside a backlog HyperOS held back.
 
 Recorded on 2026-10-11 (on the Mac that drove them):
 

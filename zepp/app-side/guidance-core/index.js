@@ -10,7 +10,8 @@
 // there is none (the instruction shows instead). To keep Bluetooth traffic small, a view leaves
 // the arrow out when the watch already shows that same image: no arrow key means "keep it".
 //
-// Buzz commands: 'newManeuver' (one short buzz) when a Maneuver appears, 'turnNow' (the
+// Buzz commands: 'newManeuver' (one short buzz) when a Maneuver appears (2 s later for the
+// "0 m" placeholder, or not at all if the real Maneuver replaces it first), 'turnNow' (the
 // Turn-Now Alert) once per Maneuver when its distance first drops to 100 m or below. A Maneuver
 // is its arrow, turn and street within a Navigation Session; distance-only re-posts never buzz.
 
@@ -24,17 +25,19 @@ const TURN_NOW_M = 100
 // creeping on past the turn ("0 m", "10 m", "20 m" was recorded before the next Maneuver).
 const NEXT_TURN_M = 50
 
-// A new-Maneuver buzz this soon after the last buzz is dropped.
-const BUZZ_GAP_MS = 2_000
+// A Maneuver that opens at Google Maps' "0 m" placeholder buzzes this long after, unless the
+// real Maneuver replaces it first. Recorded after reroutes: the placeholder, then the real
+// Maneuver under a second later; two buzzes that close would feel like the Turn-Now Alert.
+const PLACEHOLDER_BUZZ_MS = 2_000
 
 const NOTHING = { view: null, buzzes: [] }
 
 export function createGuidanceCore() {
   let shown = null // the last Turn Card View sent to the watch
   let sessionKey = null // the notification key of the running Navigation Session
-  let onCard = null // the Maneuver on the Turn Card: { arrow, turn, street, distance, sawRealDistance, reachedTurn, turnNowDone }
+  let onCard = null // the Maneuver on the Turn Card: { arrow, turn, street, distance, sawRealDistance, atTurn, turnNowDone }
   let arrivedAt = null // when "Arrived" went up, while it is up
-  let lastBuzzAt = null // when the watch last buzzed
+  let placeholderAt = null // when the "0 m" placeholder on the Turn Card opened, while its buzz waits
 
   // The view goes out only if it changed; buzzes always do.
   function show(view, buzzes = []) {
@@ -67,6 +70,7 @@ export function createGuidanceCore() {
         sessionKey = null
         onCard = null
         arrivedAt = null
+        placeholderAt = null
         // Google Maps removes its notification both on arrival and on cancel. Only the
         // trip line tells them apart: nothing left to drive means we arrived. Arriving at a
         // waypoint looks the same, so a new Maneuver during "Arrived" carries the session on.
@@ -93,15 +97,24 @@ export function createGuidanceCore() {
       const distance = title.distance || text.distance
       // A Maneuver is its arrow, turn and street; a new one starts without a distance.
       // Recorded: two turns in a row with the same arrow onto the same street. The first counts
-      // down to "0 m", then the distance jumps back up for the second.
-      const nextTurn = onCard?.reachedTurn && distance && metres(distance) >= NEXT_TURN_M
+      // down to "0 m", then the distance jumps straight back up for the second.
+      const nextTurn = onCard?.atTurn && distance && metres(distance) >= NEXT_TURN_M
       const buzzes = []
       if (!onCard || !sameArrow(onCard.arrow, arrow) || onCard.turn !== turn || onCard.street !== street || nextTurn) {
-        onCard = { arrow, turn, street, distance: '', sawRealDistance: false, reachedTurn: false, turnNowDone: false }
-        if (!isStarting(turn)) buzzes.push('newManeuver')
+        onCard = { arrow, turn, street, distance: '', sawRealDistance: false, atTurn: false, turnNowDone: false }
+        placeholderAt = null
+        if (distance && isZero(distance)) placeholderAt = now
+        else if (!isStarting(turn)) buzzes.push('newManeuver')
       }
-      if (distance && !isZero(distance)) onCard.sawRealDistance = true
-      if (distance && isZero(distance) && onCard.sawRealDistance) onCard.reachedTurn = true
+      if (distance && !isZero(distance)) {
+        onCard.sawRealDistance = true
+        // The placeholder turned into the Maneuver before its buzz went out: buzz now.
+        if (placeholderAt !== null) {
+          placeholderAt = null
+          buzzes.push('newManeuver')
+        }
+      }
+      if (distance) onCard.atTurn = isZero(distance) && onCard.sawRealDistance
       // Google Maps opens a Maneuver at "0 m" before its first real distance: that is not
       // "the turn is here".
       if (distance && onCard.sawRealDistance) {
@@ -113,10 +126,6 @@ export function createGuidanceCore() {
           if (!buzzes.length) buzzes.push('turnNow')
         }
       }
-      // Two short buzzes this close feel like the Turn-Now Alert. Recorded after reroutes: the
-      // "0 m" placeholder, then the real Maneuver under a second later. Only the first buzzes.
-      if (buzzes[0] === 'newManeuver' && lastBuzzAt !== null && now - lastBuzzAt < BUZZ_GAP_MS) buzzes.shift()
-      if (buzzes.length) lastBuzzAt = now
       return showManeuver(tripLine(snapshot.subText), buzzes)
     },
 
@@ -125,6 +134,10 @@ export function createGuidanceCore() {
     },
 
     tick(now) {
+      if (placeholderAt !== null && now - placeholderAt >= PLACEHOLDER_BUZZ_MS) {
+        placeholderAt = null
+        if (!isStarting(onCard.turn)) return { view: null, buzzes: ['newManeuver'] }
+      }
       if (arrivedAt === null || now - arrivedAt < ARRIVED_MS) return NOTHING
       arrivedAt = null
       return show({ screen: 'waiting' })

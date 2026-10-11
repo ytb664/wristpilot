@@ -22,51 +22,57 @@ const SETTLE_MS = 6000
 
 // Replays one recording as the side service would: each snapshot at the time the forwarder got
 // it, ticks in between. After each snapshot, the Turn Card View as the watch holds it (a view
-// without an arrow keeps the arrow shown).
+// without an arrow keeps the arrow shown), and the buzzes by the snapshot they came after.
 function replay(snapshots) {
   const core = createGuidanceCore()
   let watch = null
   const buzzes = []
   const after = []
-  const take = ({ view, buzzes: sent }, now) => {
+  const take = ({ view, buzzes: sent }, now, index) => {
     if (view) watch = 'arrow' in view || !watch ? view : { ...view, arrow: watch.arrow }
-    for (const buzz of sent) buzzes.push({ at: now, buzz })
+    for (const buzz of sent) buzzes.push({ at: now, index, buzz })
   }
   let last = snapshots[0].at
-  for (const snapshot of snapshots) {
-    for (let t = last + TICK_MS; t < snapshot.at; t += TICK_MS) take(core.tick(t), t)
+  snapshots.forEach((snapshot, i) => {
+    for (let t = last + TICK_MS; t < snapshot.at; t += TICK_MS) take(core.tick(t), t, i - 1)
     last = snapshot.at
-    take(core.receive(snapshot, snapshot.at), snapshot.at)
+    take(core.receive(snapshot, snapshot.at), snapshot.at, i)
     after.push(watch)
-  }
-  for (let t = last + TICK_MS; t <= last + SETTLE_MS; t += TICK_MS) take(core.tick(t), t)
+  })
+  for (let t = last + TICK_MS; t <= last + SETTLE_MS; t += TICK_MS) take(core.tick(t), t, snapshots.length - 1)
   return { after, buzzes, end: watch }
 }
 
-// Google Maps' own Maneuvers: runs of distance posts with one arrow and street, split where the
-// distance jumps back up from "0 m" (two turns in a row onto the same street).
-function maneuversOf(snapshots) {
-  const maneuvers = []
-  let current = null
-  for (const s of snapshots) {
+// Google Maps' distance posts (a distance in the title, a street in the text), each with the
+// distance post before it in the same Navigation Session, if any.
+function distancePosts(snapshots) {
+  const posts = []
+  let previous = null
+  snapshots.forEach((s, index) => {
     if (s.event !== 'posted') {
-      current = null
-      continue
+      previous = null
+      return
     }
     const title = plain(s.title)
-    if (!DISTANCE.test(title) || !plain(s.text)) continue
-    const key = `${s.icon?.data}|${plain(s.text)}`
-    const d = metres(title)
-    if (!current || current.key !== key || (current.reachedZero && d >= 50)) {
-      current = { key, from: s.at, to: s.at, distances: [] }
-      maneuvers.push(current)
-    }
-    if (d === 0 && current.distances.some((x) => x > 0)) current.reachedZero = true
-    current.distances.push(d)
-    current.to = s.at
-  }
-  return maneuvers
+    if (!DISTANCE.test(title) || !plain(s.text)) return
+    const post = { index, metres: metres(title), arrow: s.icon?.data ?? null, street: plain(s.text), previous }
+    posts.push(post)
+    previous = post
+  })
+  return posts
 }
+
+// A backlog the forwarder delivers all at once (HyperOS froze it) can't be spaced out. Google
+// Maps' post time says how late a snapshot came (format v3 on); a v2 recording only shows the
+// backlog as snapshots arriving a fraction of a second apart.
+function heldBack(snapshots, i) {
+  const s = snapshots[i]
+  if (s.postedAt) return s.at - s.postedAt > 5000
+  return i > 0 && s.at - snapshots[i - 1].at < 300
+}
+
+const sameManeuverShown = (a, b) => a.arrow === b.arrow && a.street === b.street
+const at = (snapshots, i) => `+${((snapshots[i].at - snapshots[0].at) / 1000).toFixed(1)} s`
 
 for (const name of recordings) {
   const snapshots = readFileSync(new URL(name, FIXTURES), 'utf8')
@@ -92,19 +98,28 @@ for (const name of recordings) {
     assert.equal(end?.screen, 'waiting')
   })
 
-  test(`${name}: every Maneuver first shown beyond 100 m gets one Turn-Now Alert before it ends`, () => {
-    for (const m of maneuversOf(snapshots)) {
-      const firstReal = m.distances.find((d) => d > 0)
-      if (!(firstReal > 100) || !m.distances.some((d) => d <= 100)) continue
-      const alerts = buzzes.filter((b) => b.buzz === 'turnNow' && b.at >= m.from && b.at <= m.to)
-      assert.equal(alerts.length, 1, `Maneuver at +${((m.from - snapshots[0].at) / 1000).toFixed(0)} s`)
+  const posts = distancePosts(snapshots)
+  const buzzedAt = (index, buzz) => buzzes.some((b) => b.index === index && b.buzz === buzz)
+
+  test(`${name}: a new arrow or street with a real distance buzzes as a new Maneuver`, () => {
+    for (const post of posts) {
+      if (!post.previous || post.metres === 0 || sameManeuverShown(post, post.previous)) continue
+      assert.ok(buzzedAt(post.index, 'newManeuver'), `snapshot ${post.index} at ${at(snapshots, post.index)}`)
     }
   })
 
-  test(`${name}: no new-Maneuver buzz comes within 2 s of another buzz`, () => {
+  test(`${name}: the distance dropping from beyond 100 m to 100 m or less gives the Turn-Now Alert`, () => {
+    for (const post of posts) {
+      const { previous } = post
+      if (!previous || !sameManeuverShown(post, previous) || !(previous.metres > 100 && post.metres <= 100)) continue
+      assert.ok(buzzedAt(post.index, 'turnNow'), `snapshot ${post.index} at ${at(snapshots, post.index)}`)
+    }
+  })
+
+  test(`${name}: no two buzzes less than 1 s apart, outside a held-back backlog`, () => {
     buzzes.forEach((b, i) => {
-      if (i === 0 || b.buzz !== 'newManeuver') return
-      assert.ok(b.at - buzzes[i - 1].at >= 2000, `buzz at +${((b.at - snapshots[0].at) / 1000).toFixed(1)} s`)
+      if (i === 0) return
+      if (!heldBack(snapshots, b.index)) assert.ok(b.at - buzzes[i - 1].at >= 1000, `buzz at ${at(snapshots, b.index)}`)
     })
   })
 }

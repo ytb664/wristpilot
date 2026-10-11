@@ -419,13 +419,14 @@ test('the Turn-Now Alert fires once, when the distance first drops to 100 m or b
 test('a Maneuver that appears at 100 m or closer only gets the new-Maneuver buzz', () => {
   const sent = buzzes([
     [1_000, posted({ title: '0 m', text: 'Jl. Alpha', icon: STRAIGHT })],
+    [3_000, 'tick'],
     [30_000, posted({ title: '100 m', text: 'Jl. Charlie', icon: RIGHT })],
     [31_000, posted({ title: '90 m', text: 'Jl. Charlie', icon: RIGHT })],
     [40_000, posted({ title: '10 m', text: 'Jl. Charlie', icon: RIGHT })],
   ])
 
   assert.deepEqual(sent, [
-    [1_000, 'newManeuver'],
+    [3_000, 'newManeuver'],
     [30_000, 'newManeuver'],
   ])
 })
@@ -433,16 +434,16 @@ test('a Maneuver that appears at 100 m or closer only gets the new-Maneuver buzz
 test('a reroute to a different Maneuver buzzes as new and gets its own Turn-Now Alert', () => {
   const sent = buzzes([
     [1_000, posted({ title: '120 m', text: 'Turn left onto Jl. Alpha', icon: RIGHT })],
-    [10_000, posted({ title: '90 m', text: 'Turn left onto Jl. Alpha', icon: RIGHT })],
-    [20_000, posted({ title: '600 m', text: 'Turn right onto Jl. Salemba', icon: STRAIGHT })],
-    [80_000, posted({ title: '100 m', text: 'Turn right onto Jl. Salemba', icon: STRAIGHT })],
+    [2_000, posted({ title: '90 m', text: 'Turn left onto Jl. Alpha', icon: RIGHT })],
+    [3_000, posted({ title: '600 m', text: 'Turn right onto Jl. Salemba', icon: STRAIGHT })],
+    [4_000, posted({ title: '100 m', text: 'Turn right onto Jl. Salemba', icon: STRAIGHT })],
   ])
 
   assert.deepEqual(sent, [
     [1_000, 'newManeuver'],
-    [10_000, 'turnNow'],
-    [20_000, 'newManeuver'],
-    [80_000, 'turnNow'],
+    [2_000, 'turnNow'],
+    [3_000, 'newManeuver'],
+    [4_000, 'turnNow'],
   ])
 })
 
@@ -467,17 +468,18 @@ test('a Navigation Session\'s start buzzes for its first Maneuver, not for "Star
     [1_000, posted({ title: 'Starting navigation…' })],
     [2_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
     [3_000, posted({ title: '', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
-    [4_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
-    [5_000, posted({ title: '110 m', text: 'Jl. Alpha', subText: tripLine, icon: RIGHT })],
-    [6_000, posted({ title: '', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
-    [7_000, posted({ title: '100 m', text: 'Jl. Alpha', subText: tripLine, icon: RIGHT })],
-    [8_000, posted({ title: '90 m', text: 'Jl. Alpha', subText: tripLine, icon: RIGHT })],
+    [4_000, 'tick'],
+    [10_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
+    [20_000, posted({ title: '110 m', text: 'Jl. Alpha', subText: tripLine, icon: RIGHT })],
+    [21_000, posted({ title: '', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
+    [22_000, posted({ title: '100 m', text: 'Jl. Alpha', subText: tripLine, icon: RIGHT })],
+    [23_000, posted({ title: '90 m', text: 'Jl. Alpha', subText: tripLine, icon: RIGHT })],
   ])
 
   assert.deepEqual(sent, [
-    [2_000, 'newManeuver'],
-    [5_000, 'newManeuver'],
-    [7_000, 'turnNow'],
+    [4_000, 'newManeuver'],
+    [20_000, 'newManeuver'],
+    [22_000, 'turnNow'],
   ])
 })
 
@@ -494,12 +496,13 @@ test('a Maneuver that opened at "0 m" gets its Turn-Now Alert when its first rea
   // The opening "0 m" isn't shown, so the new-Maneuver buzz came alone, maybe long before.
   const sent = buzzes([
     [1_000, posted({ title: '0 m', text: 'Jl. Alpha', icon: STRAIGHT })],
+    [3_000, 'tick'],
     [60_000, posted({ title: '90 m', text: 'Jl. Alpha', icon: STRAIGHT })],
     [61_000, posted({ title: '80 m', text: 'Jl. Alpha', icon: STRAIGHT })],
   ])
 
   assert.deepEqual(sent, [
-    [1_000, 'newManeuver'],
+    [3_000, 'newManeuver'],
     [60_000, 'turnNow'],
   ])
 })
@@ -527,21 +530,25 @@ test('"Rerouting..." shows on the Turn Card but is not a Maneuver: no buzz, and 
   const tripLine = '4 min · 1.4 km · 5:33 PM ETA'
   const { views, buzzes: sent } = drive([
     [1_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
+    [3_000, 'tick'],
     [60_000, posted({ title: '', text: 'Rerouting...' })],
     [60_300, posted({ title: '0 m', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
+    [63_000, 'tick'],
   ])
 
-  assert.deepEqual(sent, [[1_000, 'newManeuver']])
+  assert.deepEqual(sent, [[3_000, 'newManeuver']])
   assert.deepEqual(views[1], [60_000, turn({ street: 'Rerouting...' })])
   assert.deepEqual(views[2], [60_300, turn({ arrow: STRAIGHT, street: 'Jl. Alpha', tripLine: 'ETA 5:33 PM · 4 min' })])
 })
 
-test('the car creeping on past a turn ("0 m", "10 m", "20 m") is not the next turn', () => {
+test('the car creeping on past a turn ("0 m", "10 m", "20 m", … "50 m") is not the next turn', () => {
   const sent = buzzes([
     [1_000, posted({ title: '150 m', text: 'Jl. Bravo Raya', icon: RIGHT })],
     [20_000, posted({ title: '0 m', text: 'Jl. Bravo Raya', icon: RIGHT })],
     [24_000, posted({ title: '10 m', text: 'Jl. Bravo Raya', icon: RIGHT })],
     [26_000, posted({ title: '20 m', text: 'Jl. Bravo Raya', icon: RIGHT })],
+    [28_000, posted({ title: '30 m', text: 'Jl. Bravo Raya', icon: RIGHT })],
+    [30_000, posted({ title: '50 m', text: 'Jl. Bravo Raya', icon: RIGHT })],
   ])
 
   assert.deepEqual(sent, [
@@ -550,18 +557,33 @@ test('the car creeping on past a turn ("0 m", "10 m", "20 m") is not the next tu
   ])
 })
 
-test('two new Maneuvers within 2 s buzz once: two short buzzes that close feel like the Turn-Now Alert', () => {
-  // As recorded after a reroute: the "0 m" placeholder, then the real Maneuver 0.6 s later.
+test('after a reroute, the "0 m" placeholder does not buzz when the real Maneuver follows within 2 s', () => {
+  // As recorded: "Rerouting...", the placeholder, then the real Maneuver 0.6 s later, already
+  // within 100 m. One buzz, for the real Maneuver: two that close would feel like the Turn-Now Alert.
   const sent = buzzes([
     [1_000, posted({ title: '90 m', text: 'Jl. Charlie', icon: RIGHT })],
     [20_000, posted({ title: '', text: 'Rerouting...' })],
     [20_400, posted({ title: '0 m', text: 'Jl. Alpha', icon: STRAIGHT })],
     [21_000, posted({ title: '100 m', text: 'Jl. Alpha', icon: RIGHT })],
+    [22_000, 'tick'],
+    [23_000, 'tick'],
     [24_000, posted({ title: '90 m', text: 'Jl. Alpha', icon: RIGHT })],
   ])
 
   assert.deepEqual(sent, [
     [1_000, 'newManeuver'],
-    [20_400, 'newManeuver'],
+    [21_000, 'newManeuver'],
   ])
+})
+
+test('a "0 m" placeholder that stays on the Turn Card buzzes 2 s after it appeared', () => {
+  const sent = buzzes([
+    [1_000, posted({ title: 'Starting navigation…' })],
+    [2_000, posted({ title: '0 m', text: 'Jl. Alpha', icon: STRAIGHT })],
+    [3_000, 'tick'],
+    [4_000, 'tick'],
+    [5_000, 'tick'],
+  ])
+
+  assert.deepEqual(sent, [[4_000, 'newManeuver']])
 })
