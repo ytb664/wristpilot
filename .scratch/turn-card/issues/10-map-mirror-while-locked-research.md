@@ -4,6 +4,8 @@
 
 **Blocked by:** 08 (only worth doing if the Map Mirror works with the phone unlocked).
 
+_Changed 2026-10-11: ticket 08's device runs now happen in ticket 09, after this one, so whether the Map Mirror works unlocked isn't known yet. Do the research anyway and make the recommendation conditional on those runs._
+
 **Status:** ready-for-agent
 
 - [ ] Whether Google Maps keeps streaming to a phone-hosted Android Auto screen while the phone is locked (primary sources, issue trackers, the headunit projects).
