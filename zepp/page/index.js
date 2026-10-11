@@ -2,7 +2,18 @@
 import * as hmUI from '@zos/ui'
 import { getDeviceInfo } from '@zos/device'
 import { Vibrator } from '@zos/sensor'
+import {
+  setPageBrightTime,
+  resetPageBrightTime,
+  pauseDropWristScreenOff,
+  resetDropWristScreenOff,
+  pausePalmScreenOff,
+  resetPalmScreenOff,
+  setWakeUpRelaunch,
+} from '@zos/display'
+import { onGesture, offGesture, GESTURE_RIGHT } from '@zos/interaction'
 import { BasePage } from '@zeppos/zml/base-page'
+import { createStaleTimer } from './stale-timer.js'
 
 const { width: WIDTH, height: HEIGHT } = getDeviceInfo()
 // The screens that show a message instead of the Turn Card.
@@ -13,6 +24,13 @@ const MESSAGES = {
 
 const WHITE = 0xffffff
 const GREY = 0xaaaaaa
+// The Stale Turn Card: everything dimmed to this share of its brightness, plus a "disconnected" mark.
+const STALE_DIM = 0.35
+const STALE_MARK_COLOR = 0xff5040
+// How often the page checks whether the Turn Card has gone stale.
+const STALE_CHECK_MS = 1000
+// setPageBrightTime's longest bright time (about 24 days): the whole Navigation Session.
+const BRIGHT_FOR_SESSION_MS = 2147483000
 
 // Turn Card layout on the round 480×480 screen, top to bottom. Each row is narrowed to stay
 // inside the circle at its lowest edge. Google Maps' arrow is drawn 1:1 from the forwarder's
@@ -22,6 +40,7 @@ const INSTRUCTION = { x: 100, y: 52, w: WIDTH - 200, h: 120, text_size: 36, colo
 const DISTANCE = { x: 40, y: 185, w: WIDTH - 80, h: 110, text_size: 96, color: WHITE }
 const STREET = { x: 40, y: 295, w: WIDTH - 80, h: 56, text_size: 44, color: WHITE }
 const TRIP_LINE = { x: 80, y: 365, w: WIDTH - 160, h: 40, text_size: 30, color: GREY }
+const STALE_MARK = { x: 130, y: 412, w: WIDTH - 260, h: 36, text_size: 28, color: STALE_MARK_COLOR }
 
 Page(
   BasePage({
@@ -51,6 +70,22 @@ Page(
         (this.street = line(STREET)),
         (this.tripLine = line(TRIP_LINE)),
       ]
+      // Text widgets dimmed on the Stale Turn Card, with their normal colours.
+      this.dimmable = [
+        [this.instruction, INSTRUCTION.color],
+        [this.distance, DISTANCE.color],
+        [this.street, STREET.color],
+        [this.tripLine, TRIP_LINE.color],
+      ]
+      this.staleMark = line(STALE_MARK)
+      this.staleMark.setProperty(hmUI.prop.TEXT, 'Disconnected')
+      this.staleMark.setProperty(hmUI.prop.VISIBLE, false)
+      this.showsStale = false
+      this.staleTimer = createStaleTimer()
+      this.staleCheck = setInterval(() => this.checkStale(), STALE_CHECK_MS)
+      this.awake = false
+      // A stray swipe mustn't close the Turn Card mid-drive; the button still leaves.
+      onGesture({ callback: (event) => this.awake && event === GESTURE_RIGHT })
       // The Waiting Screen and "Arrived".
       this.message = hmUI.createWidget(hmUI.widget.TEXT, {
         x: 40,
@@ -70,13 +105,59 @@ Page(
 
     askForCurrent() {
       this.request({ method: 'turnCard.current' })
-        .then((view) => this.show(view))
+        .then((view) => {
+          this.heard()
+          this.show(view)
+        })
         .catch(() => {})
     },
 
     onCall({ method, params }) {
+      this.heard()
       if (method === 'turnCard.view') this.show(params)
       else if (method === 'turnCard.buzz') this.buzz(params.buzz)
+      // turnCard.heartbeat only says the Navigation Phone is still there.
+    },
+
+    // Any message from the side service. After a silence, views may have been lost (and with
+    // them a new arrow, which views leave out once sent), so ask for the full Turn Card.
+    heard() {
+      if (!this.staleTimer.heard(Date.now())) return
+      this.setStale(false)
+      this.askForCurrent()
+    },
+
+    checkStale() {
+      this.setStale(this.onTurn && this.staleTimer.isStale(Date.now()))
+    },
+
+    // The Stale Turn Card is the Turn Card dimmed, with the "disconnected" mark.
+    setStale(stale) {
+      if (stale === this.showsStale) return
+      this.showsStale = stale
+      for (const [widget, color] of this.dimmable) {
+        widget.setProperty(hmUI.prop.COLOR, stale ? dim(color) : color)
+      }
+      this.drawArrow(this.arrowShown)
+      this.staleMark.setProperty(hmUI.prop.VISIBLE, stale)
+    },
+
+    // During a Navigation Session the screen stays on and Wristpilot stays open: no timeout,
+    // no wrist-drop or palm-cover screen-off, and if the screen goes off anyway, waking the
+    // watch reopens Wristpilot instead of the watch face. Normal behaviour returns after.
+    keepAwake(awake) {
+      if (awake === this.awake) return
+      this.awake = awake
+      if (awake) {
+        setPageBrightTime({ brightTime: BRIGHT_FOR_SESSION_MS })
+        pauseDropWristScreenOff({ duration: 0 })
+        pausePalmScreenOff({ duration: 0 })
+      } else {
+        resetPageBrightTime()
+        resetDropWristScreenOff()
+        resetPalmScreenOff()
+      }
+      setWakeUpRelaunch({ relaunch: awake })
     },
 
     // Buzz commands from the Guidance core, played with the step patterns from build().
@@ -89,15 +170,25 @@ Page(
 
     onDestroy() {
       this.vibrator.stop()
+      clearInterval(this.staleCheck)
+      offGesture()
+      // Relaunch-on-wake is left as it is: the system closing Wristpilot while the screen is
+      // off also destroys the page, and waking the watch must still reopen it.
+      if (this.awake) {
+        resetPageBrightTime()
+        resetDropWristScreenOff()
+        resetPalmScreenOff()
+      }
     },
 
     // Google Maps' arrow as rects from the side service: { w, h, rects: [x, y, w, h, level, ...] },
     // or null for none. Drawn once per new arrow; re-posts with the same arrow don't resend it.
     drawArrow(arrow) {
       this.arrow.clear({ x: 0, y: 0, w: ARROW.w, h: ARROW.h })
-      this.knowsArrow = true
+      this.arrowShown = arrow
       this.hasArrow = !!arrow
       if (!arrow) return
+      const brightness = this.showsStale ? STALE_DIM : 1
       const left = Math.round((ARROW.w - arrow.w) / 2)
       const top = Math.round((ARROW.h - arrow.h) / 2)
       const { rects } = arrow
@@ -107,7 +198,7 @@ Page(
           y: top + rects[i + 1],
           w: rects[i + 2],
           h: rects[i + 3],
-          color: rects[i + 4] * 0x111111,
+          color: Math.round(rects[i + 4] * brightness) * 0x111111,
         })
       }
     },
@@ -118,8 +209,13 @@ Page(
       const onTurn = view.screen === 'turn'
       // No arrow key: the arrow on the watch is still Google Maps' current one. If this page
       // never got one (a view raced ahead of the turnCard.current reply), ask for it.
-      if ('arrow' in view) this.drawArrow(view.arrow)
-      else if (onTurn && !this.knowsArrow) this.askForCurrent()
+      if ('arrow' in view) {
+        this.knowsArrow = true
+        this.drawArrow(view.arrow)
+      } else if (onTurn && !this.knowsArrow) this.askForCurrent()
+      this.onTurn = onTurn
+      this.keepAwake(onTurn)
+      if (!onTurn) this.setStale(false)
       for (const widget of this.turnCard) widget.setProperty(hmUI.prop.VISIBLE, onTurn)
       this.arrow.setProperty(hmUI.prop.VISIBLE, onTurn && this.hasArrow)
       this.instruction.setProperty(hmUI.prop.VISIBLE, onTurn && !this.hasArrow)
@@ -135,6 +231,11 @@ Page(
     },
   }),
 )
+
+function dim(color) {
+  const channel = (shift) => Math.round(((color >> shift) & 0xff) * STALE_DIM) << shift
+  return channel(16) | channel(8) | channel(0)
+}
 
 // One centred line that ends in "…" when it doesn't fit.
 function line(box) {
