@@ -6,7 +6,7 @@
 
 _Changed 2026-10-11: ticket 08's device runs now happen in ticket 09, after this one, so whether the Map Mirror works unlocked isn't known yet. Do the research anyway and make the recommendation conditional on those runs._
 
-**Status:** in-progress
+**Status:** done
 
 - [x] Whether Google Maps keeps streaming to a phone-hosted Android Auto screen while the phone is locked (primary sources, issue trackers, the headunit projects).
 - [x] What it would take: the Android Auto protocol pieces, H.264 decoding on the phone, licensing of the headunit code, and whether Android Auto 17.4+ still allows self mode on the Redmi 13C (HyperOS 2, Android 15).
