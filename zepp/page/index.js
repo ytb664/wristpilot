@@ -14,6 +14,7 @@ import {
 import { onGesture, offGesture, GESTURE_RIGHT } from '@zos/interaction'
 import { BasePage } from '@zeppos/zml/base-page'
 import { createStaleTimer } from './stale-timer.js'
+import { arrowDrawRects } from './arrow-canvas.js'
 
 const { width: WIDTH, height: HEIGHT } = getDeviceInfo()
 // The screens that show a message instead of the Turn Card.
@@ -195,16 +196,7 @@ Page(
       const brightness = this.showsStale ? STALE_DIM : 1
       const left = Math.round((ARROW.w - arrow.w) / 2)
       const top = Math.round((ARROW.h - arrow.h) / 2)
-      const { rects } = arrow
-      for (let i = 0; i < rects.length; i += 5) {
-        this.arrow.drawRect({
-          x: left + rects[i],
-          y: top + rects[i + 1],
-          w: rects[i + 2],
-          h: rects[i + 3],
-          color: Math.round(rects[i + 4] * brightness) * 0x111111,
-        })
-      }
+      for (const rect of arrowDrawRects(arrow, { left, top, brightness })) this.arrow.drawRect(rect)
     },
 
     show(view) {
