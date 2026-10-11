@@ -1,7 +1,7 @@
 // Turn Card page. Renders whatever Turn Card View the side service sends; no parsing here.
 import * as hmUI from '@zos/ui'
 import { getDeviceInfo } from '@zos/device'
-import { Vibrator } from '@zos/sensor'
+import { Vibrator, Time, Battery, TIME_HOUR_FORMAT_12 } from '@zos/sensor'
 import {
   setPageBrightTime,
   resetPageBrightTime,
@@ -15,6 +15,7 @@ import { onGesture, offGesture, GESTURE_RIGHT } from '@zos/interaction'
 import { BasePage } from '@zeppos/zml/base-page'
 import { createStaleTimer } from './stale-timer.js'
 import { arrowDrawRects } from './arrow-canvas.js'
+import { statusLine } from './status-line.js'
 
 const { width: WIDTH, height: HEIGHT } = getDeviceInfo()
 // The screens that show a message instead of the Turn Card.
@@ -35,6 +36,10 @@ const STALE_CHECK_MS = 1000
 const STALE_GIVE_UP_MS = 10 * 60 * 1000
 // setPageBrightTime's longest bright time (about 24 days): the whole Navigation Session.
 const BRIGHT_FOR_SESSION_MS = 2147483000
+
+// Every screen's top line: the watch's time and battery (status-line.js), in the narrow band
+// above the arrow; at its middle the circle is ~230 px wide, room for "12:59 · 100%".
+const STATUS = { x: 140, y: 12, w: WIDTH - 280, h: 36, text_size: 28, color: GREY }
 
 // Turn Card layout on the round 480×480 screen, top to bottom. Each row is narrowed to stay
 // inside the circle at its lowest edge. Google Maps' arrow is drawn 1:1 from the forwarder's
@@ -86,7 +91,15 @@ Page(
       this.staleMark.setProperty(hmUI.prop.VISIBLE, false)
       this.showsStale = false
       this.staleTimer = createStaleTimer()
-      this.staleCheck = setInterval(() => this.checkStale(), STALE_CHECK_MS)
+      this.time = new Time()
+      this.battery = new Battery()
+      // Never dimmed: the time and battery come from the watch, not the Navigation Phone.
+      this.status = line(STATUS)
+      this.showStatus()
+      this.staleCheck = setInterval(() => {
+        this.checkStale()
+        this.showStatus()
+      }, STALE_CHECK_MS)
       this.awake = false
       // Relaunch-on-wake outlives the page (see onDestroy), so it starts off and comes on only
       // with a Turn Card: reopened outside a Navigation Session (e.g. after the button closed
@@ -133,6 +146,20 @@ Page(
       if (!this.staleTimer.heard(Date.now())) return
       this.setStale(false)
       this.askForCurrent()
+    },
+
+    // Polled with the stale check rather than through onPerMinute / onChange: Time has no way
+    // to stop its listener when the page goes, and once a second is soon enough for both.
+    showStatus() {
+      const text = statusLine({
+        hour: this.time.getFormatHour(),
+        minute: this.time.getMinutes(),
+        twelveHour: this.time.getHourFormat() === TIME_HOUR_FORMAT_12,
+        battery: this.battery.getCurrent(),
+      })
+      if (text === this.statusShown) return
+      this.statusShown = text
+      this.status.setProperty(hmUI.prop.TEXT, text)
     },
 
     checkStale() {
