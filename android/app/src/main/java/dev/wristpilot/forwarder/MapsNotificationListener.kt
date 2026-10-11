@@ -54,11 +54,19 @@ class MapsNotificationListener : NotificationListenerService() {
     private fun isFromMaps(sbn: StatusBarNotification) = sbn.packageName == GOOGLE_MAPS
 
     private fun forward(event: String, sbn: StatusBarNotification) {
-        val snapshot = RawGuidanceSnapshot.from(this, event, sbn, System.currentTimeMillis())
-        // Lets the user check on the phone what Google Maps really sends (adb logcat -s WristpilotListener).
-        Log.d(TAG, "$event category=${sbn.notification.category} ongoing=${sbn.isOngoing} icon=${!snapshot.isNull("icon")}")
-        DriveRecorder.record(this, snapshot)
-        server?.forward(snapshot)
+        // An exception here would crash the listener and silently stop all guidance.
+        try {
+            val snapshot = RawGuidanceSnapshot.from(this, event, sbn, System.currentTimeMillis())
+            // Lets the user check on the phone what Google Maps really sends (adb logcat -s WristpilotListener).
+            Log.d(TAG, "$event category=${sbn.notification.category} ongoing=${sbn.isOngoing} " +
+                "icon=${!snapshot.isNull("icon")} title=${snapshot.getString("title")}")
+            DriveRecorder.record(this, snapshot)
+            server?.forward(snapshot)
+            lastForwarded = LastForwarded(snapshot.getLong("at"), event, snapshot.getString("title"), snapshot.getString("text"))
+            forwardedCount++
+        } catch (e: Exception) {
+            Log.e(TAG, "could not forward $event", e)
+        }
     }
 
     private fun stopServer() {
@@ -76,5 +84,17 @@ class MapsNotificationListener : NotificationListenerService() {
         @Volatile
         var server: SnapshotServer? = null
             private set
+
+        /** The last Google Maps post or removal forwarded, shown on the phone screen. */
+        @Volatile
+        var lastForwarded: LastForwarded? = null
+            private set
+
+        /** Google Maps posts and removals forwarded since the forwarder started. */
+        @Volatile
+        var forwardedCount = 0
+            private set
     }
+
+    class LastForwarded(val at: Long, val event: String, val title: String, val text: String)
 }

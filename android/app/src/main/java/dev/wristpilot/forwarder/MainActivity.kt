@@ -27,6 +27,7 @@ class MainActivity : Activity() {
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var access: TextView
     private lateinit var link: TextView
+    private lateinit var last: TextView
     private lateinit var grant: Button
     private lateinit var recordings: LinearLayout
     private var shownRecordings: List<File>? = null
@@ -44,6 +45,7 @@ class MainActivity : Activity() {
         val pad = (24 * resources.displayMetrics.density).toInt()
         access = TextView(this).apply { textSize = 18f; gravity = Gravity.CENTER }
         link = TextView(this).apply { textSize = 18f; gravity = Gravity.CENTER; setPadding(0, pad / 2, 0, pad / 2) }
+        last = TextView(this).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, pad / 2) }
         grant = Button(this).apply {
             text = "Grant notification access"
             setOnClickListener { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
@@ -79,6 +81,7 @@ class MainActivity : Activity() {
                 setPadding(pad, pad, pad, pad)
                 addView(access)
                 addView(link)
+                addView(last)
                 addView(grant)
                 addView(hint)
                 addView(record)
@@ -122,6 +125,11 @@ class MainActivity : Activity() {
             server.clientCount > 0 -> "✓ Watch link up"
             else -> "… Waiting for Wristpilot on the watch to connect"
         }
+        last.text = MapsNotificationListener.lastForwarded?.let {
+            val ago = (System.currentTimeMillis() - it.at) / 1000
+            "Last Google Maps update: ${ago} s ago (${MapsNotificationListener.forwardedCount} so far)\n" +
+                if (it.event == "removed") "notification removed" else "${it.title} · ${it.text}"
+        } ?: "No Google Maps update yet"
         renderRecordings()
     }
 
