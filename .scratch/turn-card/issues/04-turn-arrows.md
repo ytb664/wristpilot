@@ -9,8 +9,8 @@
 - [x] The forwarder's arrow bitmap is big enough to look sharp at the top of the Turn Card (pick the size from the space the layout gives the arrow), bumping the snapshot format version; older recordings still load.
 - [x] Built test-first through the Guidance core seam: a snapshot with an arrow image puts it in the Turn Card View; the image is sent only when it changes (re-posts with the same arrow don't resend it); no arrow image → the instruction text shows instead.
 - [x] The watch draws the arrow from the received bitmap (e.g. on a canvas, or converted to an image file, whichever Zepp OS 4.2 on the Active Max handles smoothly) (`zeus build` passes).
-- [ ] Manual check (by the user): the arrow looks sharp, draws without a visible delay, and is readable in sunlight and at night. _(checked in ticket 09)_
-- [ ] Manual check (by the user): the arrow on the watch matches Google Maps during a real drive. _(checked in ticket 09)_
+- [x] Manual check (by the user): the arrow looks sharp, draws without a visible delay, and is readable in sunlight and at night. _(checked in ticket 09: "the arrows is good", 2026-10-11, after the drawRect fix)_
+- [x] Manual check (by the user): the arrow on the watch matches Google Maps during a real drive. _(checked in ticket 09: "the direction works perfectly", 2026-10-11)_
 
 ## How the arrow gets to the watch (built 2026-10-11)
 

@@ -6,7 +6,8 @@
 
 **Status:** in-progress
 
-- [ ] **Needs the user:** record real drives covering: normal multi-turn drive, icon-only instruction ("40 m" + street, no turn word), reroute, roundabout, highway ramp/merge, arrival, cancel, multi-stop route. The agent must stop and ask the user to do this.
+- [x] **Needs the user:** record real drives covering: normal multi-turn drive, icon-only instruction ("40 m" + street, no turn word), reroute, roundabout, highway ramp/merge, arrival, cancel, multi-stop route. The agent must stop and ask the user to do this.
+  _2026-10-11: five drives recorded (multi-turn, "40 m" + street, reroute, arrival). The user decided: roundabout, highway ramp/merge, cancel and multi-stop are recorded later, only if one of them shows a problem on a normal drive; until then the Guidance core stays as it is._
 - [ ] Recordings are trimmed if huge and the fixtures are committed in `zepp/app-side/guidance-core/fixtures/` with the index filled in.
 - [ ] **No real place in the repo.** The recordings start and end at the user's home and the GitHub repo is public, so every street, place and address in a fixture (the `text`, `title` and `textLines` fields, and destination names) is replaced with a made-up one before it is committed, consistently within a fixture so Maneuver identity still works. Hand-written tests and docs use made-up streets too (`Jl. Alpha`, `Jl. Bravo Raya`, …). The raw recordings stay uncommitted (`drive-*.jsonl` is gitignored). A local pre-push hook (`.git/hooks/pre-push`, word list in `.git/private-words`, neither is pushed) refuses any push that mentions a word on the list; add new private names there when they show up.
 - [ ] Guidance core tests replay each fixture through the seam and assert the Turn Card Views and Buzz commands; every mismatch with what Google Maps showed becomes a test case and is fixed.
