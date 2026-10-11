@@ -25,26 +25,30 @@ const NOTHING = { view: null, buzzes: [] }
 export function createGuidanceCore() {
   let shown = null // the last Turn Card View sent to the watch
   let sessionKey = null // the notification key of the running Navigation Session
-  let onCard = null // the Maneuver on the Turn Card: { arrow, turn, street, distance, sawRealDistance }
+  let onCard = null // the Maneuver on the Turn Card: { arrow, turn, street, distance, sawRealDistance, turnNowDone }
   let arrivedAt = null // when "Arrived" went up, while it is up
 
-  function show(view) {
-    if (sameJson(view, shown)) return NOTHING
+  // The view goes out only if it changed; buzzes always do.
+  function show(view, buzzes = []) {
+    if (sameJson(view, shown)) return { view: null, buzzes }
     const sent = { ...view }
     if (view.arrow && shown?.screen === 'turn' && sameArrow(view.arrow, shown.arrow)) delete sent.arrow
     shown = view
-    return { view: sent, buzzes: [] }
+    return { view: sent, buzzes }
   }
 
-  function showManeuver(tripLineText) {
-    return show({
-      screen: 'turn',
-      arrow: onCard.arrow,
-      distance: onCard.distance,
-      street: onCard.street,
-      instruction: onCard.arrow ? '' : onCard.turn,
-      tripLine: tripLineText,
-    })
+  function showManeuver(tripLineText, buzzes) {
+    return show(
+      {
+        screen: 'turn',
+        arrow: onCard.arrow,
+        distance: onCard.distance,
+        street: onCard.street,
+        instruction: onCard.arrow ? '' : onCard.turn,
+        tripLine: tripLineText,
+      },
+      buzzes,
+    )
   }
 
   return {
@@ -77,24 +81,22 @@ export function createGuidanceCore() {
       const buzzes = []
       if (!onCard || !sameArrow(onCard.arrow, arrow) || onCard.turn !== turn || onCard.street !== street) {
         onCard = { arrow, turn, street, distance: '', sawRealDistance: false, turnNowDone: false }
-        // "Starting navigation…" has neither arrow nor road: nothing to turn onto yet.
-        if (arrow || street) buzzes.push('newManeuver')
+        if (!isStarting(turn)) buzzes.push('newManeuver')
       }
       const distance = title.distance || text.distance
       if (distance && !isZero(distance)) onCard.sawRealDistance = true
       // Google Maps opens a Maneuver at "0 m" before its first real distance: that is not
       // "the turn is here".
       if (distance && onCard.sawRealDistance) {
-        // A Maneuver whose first distance is already within reach gets only its new-Maneuver
-        // buzz: two alerts at once would say nothing more.
-        const first = !onCard.distance
         onCard.distance = distance
         if (!onCard.turnNowDone && metres(distance) <= TURN_NOW_M) {
           onCard.turnNowDone = true
-          if (!first) buzzes.push('turnNow')
+          // A Maneuver that appears already within reach gets only its new-Maneuver buzz:
+          // two alerts at once would say nothing more.
+          if (!buzzes.length) buzzes.push('turnNow')
         }
       }
-      return { view: showManeuver(tripLine(snapshot.subText)).view, buzzes }
+      return showManeuver(tripLine(snapshot.subText), buzzes)
     },
 
     current() {
@@ -143,6 +145,11 @@ function withoutDistance(line) {
 
 function distanceText([, value, unit]) {
   return `${value} ${unit.toLowerCase()}`
+}
+
+// Google Maps' placeholder while it works out the first Maneuver: nothing to turn onto yet.
+function isStarting(turn) {
+  return /^starting navigation/i.test(turn)
 }
 
 function isZero(distance) {

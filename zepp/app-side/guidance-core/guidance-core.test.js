@@ -28,15 +28,25 @@ function removed(fields) {
 }
 
 // Replays Google Maps' notifications: [time, snapshot] pairs, or [time, 'tick'] for time passing
-// with no notification. Returns the views the watch was sent, with their times.
-function replay(inputs) {
+// with no notification. Returns what the watch was sent, with its times: views and Buzz commands.
+function drive(inputs) {
   const core = createGuidanceCore()
   const views = []
+  const buzzes = []
   for (const [now, input] of inputs) {
     const out = input === 'tick' ? core.tick(now) : core.receive(input, now)
     if (out.view) views.push([now, out.view])
+    for (const buzz of out.buzzes) buzzes.push([now, buzz])
   }
-  return views
+  return { views, buzzes }
+}
+
+function replay(inputs) {
+  return drive(inputs).views
+}
+
+function buzzes(inputs) {
+  return drive(inputs).buzzes
 }
 
 function turn(fields) {
@@ -98,12 +108,12 @@ test('no distance is shown when Google Maps gives none', () => {
 })
 
 test('the start of a Navigation Session does not show "0 m" before the first real distance', () => {
-  const trip = '4 min · 1.4 km · 3:55 PM ETA'
+  const tripLine = '4 min · 1.4 km · 3:55 PM ETA'
   const views = replay([
     [1_000, posted({ title: 'Starting navigation…' })],
-    [2_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: trip })],
-    [3_000, posted({ title: '110 m', text: 'Jl. Alpha', subText: trip })],
-    [4_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: trip })],
+    [2_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: tripLine })],
+    [3_000, posted({ title: '110 m', text: 'Jl. Alpha', subText: tripLine })],
+    [4_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: tripLine })],
   ])
 
   assert.deepEqual(views, [
@@ -115,21 +125,21 @@ test('the start of a Navigation Session does not show "0 m" before the first rea
 })
 
 test('a re-post with an empty title keeps the distance, and an unchanged Turn Card is not resent', () => {
-  const trip = '4 min · 1.4 km · 3:56 PM ETA'
+  const tripLine = '4 min · 1.4 km · 3:56 PM ETA'
   const views = replay([
-    [1_000, posted({ title: '90 m', text: 'Jl. Alpha', subText: trip })],
-    [2_000, posted({ title: '', text: 'Jl. Alpha', subText: trip })],
-    [3_000, posted({ title: '90 m', text: 'Jl. Alpha', subText: trip })],
+    [1_000, posted({ title: '90 m', text: 'Jl. Alpha', subText: tripLine })],
+    [2_000, posted({ title: '', text: 'Jl. Alpha', subText: tripLine })],
+    [3_000, posted({ title: '90 m', text: 'Jl. Alpha', subText: tripLine })],
   ])
 
   assert.deepEqual(views, [[1_000, turn({ distance: '90 m', street: 'Jl. Alpha', tripLine: 'ETA 3:56 PM · 4 min' })]])
 })
 
 test('cancelling the Navigation Session goes straight to the Waiting Screen', () => {
-  const trip = '2 min · 300 m · 2:00 PM ETA'
+  const tripLine = '2 min · 300 m · 2:00 PM ETA'
   const views = replay([
-    [1_000, posted({ title: '250 m', text: 'Jl. Alpha', subText: trip })],
-    [2_000, removed({ title: '250 m', text: 'Jl. Alpha', subText: trip })],
+    [1_000, posted({ title: '250 m', text: 'Jl. Alpha', subText: tripLine })],
+    [2_000, removed({ title: '250 m', text: 'Jl. Alpha', subText: tripLine })],
   ])
 
   assert.deepEqual(views, [
@@ -139,10 +149,10 @@ test('cancelling the Navigation Session goes straight to the Waiting Screen', ()
 })
 
 test('arriving shows "Arrived" for a few seconds, then the Waiting Screen', () => {
-  const trip = '0 min · 60 m · 4:03 PM ETA'
+  const tripLine = '0 min · 60 m · 4:03 PM ETA'
   const views = replay([
-    [1_000, posted({ title: '10 m', text: 'Jl. Alpha', subText: trip })],
-    [2_000, removed({ title: '10 m', text: 'Jl. Alpha', subText: trip })],
+    [1_000, posted({ title: '10 m', text: 'Jl. Alpha', subText: tripLine })],
+    [2_000, removed({ title: '10 m', text: 'Jl. Alpha', subText: tripLine })],
     [3_000, 'tick'],
     [6_000, 'tick'],
     [7_000, 'tick'],
@@ -377,16 +387,6 @@ test('a recording made before the bigger arrow (v2, 48×48) still shows its arro
   assert.deepEqual(views, [[1_000, turn({ arrow: small, distance: '110 m', street: 'Jl. Alpha' })]])
 })
 
-// Replays like replay(), but returns the Buzz commands the watch was sent, with their times.
-function buzzes(inputs) {
-  const core = createGuidanceCore()
-  const sent = []
-  for (const [now, input] of inputs) {
-    const out = input === 'tick' ? core.tick(now) : core.receive(input, now)
-    for (const buzz of out.buzzes) sent.push([now, buzz])
-  }
-  return sent
-}
 
 test('a new Maneuver buzzes once, and Google Maps re-posting its distance does not buzz again', () => {
   const sent = buzzes([
@@ -462,21 +462,44 @@ test('the same Maneuver in the next Navigation Session buzzes again', () => {
 test('a Navigation Session\'s start buzzes for its first Maneuver, not for "Starting navigation…" or re-posts', () => {
   // As recorded: "Starting navigation…", the first street at "0 m" while parked, then the
   // first turn, with an empty-title re-post carrying the previous Maneuver's arrow in between.
-  const trip = '4 min · 1.4 km · 3:56 PM ETA'
+  const tripLine = '4 min · 1.4 km · 3:56 PM ETA'
   const sent = buzzes([
     [1_000, posted({ title: 'Starting navigation…' })],
-    [2_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: trip, icon: STRAIGHT })],
-    [3_000, posted({ title: '', text: 'Jl. Alpha', subText: trip, icon: STRAIGHT })],
-    [4_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: trip, icon: STRAIGHT })],
-    [5_000, posted({ title: '110 m', text: 'Jl. Alpha', subText: trip, icon: RIGHT })],
-    [6_000, posted({ title: '', text: 'Jl. Alpha', subText: trip, icon: STRAIGHT })],
-    [7_000, posted({ title: '100 m', text: 'Jl. Alpha', subText: trip, icon: RIGHT })],
-    [8_000, posted({ title: '90 m', text: 'Jl. Alpha', subText: trip, icon: RIGHT })],
+    [2_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
+    [3_000, posted({ title: '', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
+    [4_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
+    [5_000, posted({ title: '110 m', text: 'Jl. Alpha', subText: tripLine, icon: RIGHT })],
+    [6_000, posted({ title: '', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
+    [7_000, posted({ title: '100 m', text: 'Jl. Alpha', subText: tripLine, icon: RIGHT })],
+    [8_000, posted({ title: '90 m', text: 'Jl. Alpha', subText: tripLine, icon: RIGHT })],
   ])
 
   assert.deepEqual(sent, [
     [2_000, 'newManeuver'],
     [5_000, 'newManeuver'],
     [7_000, 'turnNow'],
+  ])
+})
+
+test('a Maneuver with only a turn, no arrow and no street, still buzzes', () => {
+  const sent = buzzes([
+    [1_000, posted({ title: 'Starting navigation…' })],
+    [2_000, posted({ title: 'Head north' })],
+  ])
+
+  assert.deepEqual(sent, [[2_000, 'newManeuver']])
+})
+
+test('a Maneuver that opened at "0 m" gets its Turn-Now Alert when its first real distance is 100 m or less', () => {
+  // The opening "0 m" isn't shown, so the new-Maneuver buzz came alone, maybe long before.
+  const sent = buzzes([
+    [1_000, posted({ title: '0 m', text: 'Jl. Alpha', icon: STRAIGHT })],
+    [60_000, posted({ title: '90 m', text: 'Jl. Alpha', icon: STRAIGHT })],
+    [61_000, posted({ title: '80 m', text: 'Jl. Alpha', icon: STRAIGHT })],
+  ])
+
+  assert.deepEqual(sent, [
+    [1_000, 'newManeuver'],
+    [60_000, 'turnNow'],
   ])
 })

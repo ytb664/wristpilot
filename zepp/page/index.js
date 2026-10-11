@@ -27,6 +27,14 @@ Page(
   BasePage({
     build() {
       this.vibrator = new Vibrator()
+      // One short buzz for a new Maneuver, two for the Turn-Now Alert (step patterns: API 3.6).
+      // Named scenes like URGENT may be patterns of their own, so both use the plain short buzz.
+      const type = this.vibrator.getType()
+      const short = { type: type.STRONG_SHORT }
+      this.buzzSteps = {
+        newManeuver: [short],
+        turnNow: [short, { type: type.PAUSE, duration: 150 }, short],
+      }
       this.arrow = hmUI.createWidget(hmUI.widget.CANVAS, ARROW)
       this.hasArrow = false
       // False until the page has been told an arrow (or none): views leave out an unchanged one.
@@ -71,21 +79,16 @@ Page(
       else if (method === 'turnCard.buzz') this.buzz(params.buzz)
     },
 
-    // Buzz commands from the Guidance core: one short buzz for a new Maneuver, a stronger
-    // double buzz for the Turn-Now Alert. Step patterns need API 3.6.
+    // Buzz commands from the Guidance core, played with the step patterns from build().
     buzz(buzz) {
-      const type = this.vibrator.getType()
-      const steps = {
-        newManeuver: [{ type: type.STRONG_SHORT }],
-        turnNow: [
-          { type: type.URGENT, duration: 200 },
-          { type: type.PAUSE, duration: 150 },
-          { type: type.URGENT, duration: 200 },
-        ],
-      }[buzz]
+      const steps = this.buzzSteps[buzz]
       if (!steps) return
       this.vibrator.stop()
       this.vibrator.start(steps)
+    },
+
+    onDestroy() {
+      this.vibrator.stop()
     },
 
     // Google Maps' arrow as rects from the side service: { w, h, rects: [x, y, w, h, level, ...] },
