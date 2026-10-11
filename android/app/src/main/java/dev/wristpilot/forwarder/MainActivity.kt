@@ -28,8 +28,8 @@ class MainActivity : Activity() {
     private lateinit var link: TextView
     private lateinit var last: TextView
     private lateinit var awake: TextView
-    /** Each checklist step's title line, refreshed with its ✓ / ✗. */
-    private val stepTitles = mutableListOf<TextView>()
+    /** Each checklist item's title line, refreshed with its ✓ / ✗. */
+    private val itemTitles = mutableListOf<TextView>()
     private lateinit var recordings: LinearLayout
     private var shownRecordings: List<File>? = null
     private var lastRebindAt = 0L
@@ -55,17 +55,17 @@ class MainActivity : Activity() {
                 textSize = 20f
                 setPadding(0, pad, 0, pad / 4)
             })
-            SetupChecklist.steps.forEach { step ->
+            SetupChecklist.items.forEach { item ->
                 addView(TextView(this@MainActivity).apply {
                     textSize = 16f
                     setPadding(0, pad / 2, 0, 0)
-                    stepTitles += this
+                    itemTitles += this
                 })
-                addView(TextView(this@MainActivity).apply { text = step.how })
-                val open = step.open
-                if (step.button != null && open != null) {
+                addView(TextView(this@MainActivity).apply { text = item.how })
+                val open = item.open
+                if (item.button != null && open != null) {
                     addView(Button(this@MainActivity).apply {
-                        text = step.button
+                        text = item.button
                         isAllCaps = false
                         setOnClickListener { open(this@MainActivity) }
                     })
@@ -153,13 +153,13 @@ class MainActivity : Activity() {
                 "Turn off battery optimization for Wristpilot below."
             else -> "Not navigating"
         }
-        SetupChecklist.steps.forEachIndexed { i, step ->
-            val mark = when (step.done(this)) {
+        SetupChecklist.items.forEachIndexed { i, item ->
+            val mark = when (item.done(this)) {
                 true -> "✓"
                 false -> "✗"
                 null -> "•"
             }
-            stepTitles[i].text = "$mark ${step.title}"
+            itemTitles[i].text = "$mark ${item.title}"
         }
         renderRecordings()
     }

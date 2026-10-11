@@ -15,9 +15,6 @@ import androidx.core.app.NotificationCompat
 class MapsNotificationListener : NotificationListenerService() {
     private val handler = Handler(Looper.getMainLooper())
 
-    /** Keys of the Google Maps navigation notifications showing now. */
-    private val navigationKeys = mutableSetOf<String>()
-
     private val heartbeat = object : Runnable {
         override fun run() {
             server?.heartbeat()
@@ -30,20 +27,21 @@ class MapsNotificationListener : NotificationListenerService() {
         if (server == null) startServer()
         handler.removeCallbacks(heartbeat)
         handler.post(heartbeat)
-        activeNotifications?.filter(::isFromMaps)?.forEach { forward("posted", it) }
+        val showing = activeNotifications.orEmpty().filter(::isFromMaps)
+        // A rebind mid-session carries on the session it interrupted; one that ended meanwhile ends.
+        val stillNavigating = showing.filter(::isNavigation).map { it.key }.toSet()
+        if (navigationKeys.retainAll(stillNavigating) && navigationKeys.isEmpty()) endSession()
+        showing.forEach { forward("posted", it) }
     }
 
     override fun onListenerDisconnected() {
         Log.i(TAG, "listener disconnected")
-        shutDown()
+        // The session is kept: HyperOS often rebinds the listener at once.
+        handler.removeCallbacksAndMessages(null)
+        stopServer()
     }
 
     override fun onDestroy() {
-        shutDown()
-        super.onDestroy()
-    }
-
-    private fun shutDown() {
         handler.removeCallbacksAndMessages(null)
         stopServer()
         // Without the listener no update can arrive: nothing left to stay awake for.
@@ -51,6 +49,7 @@ class MapsNotificationListener : NotificationListenerService() {
             navigationKeys.clear()
             endSession()
         }
+        super.onDestroy()
     }
 
     private fun startServer() {
@@ -101,7 +100,7 @@ class MapsNotificationListener : NotificationListenerService() {
      * It runs again on every update, so a keep-awake service Android killed comes back.
      */
     private fun keepAwake(event: String, sbn: StatusBarNotification) {
-        if (sbn.notification.category != NotificationCompat.CATEGORY_NAVIGATION) return
+        if (!isNavigation(sbn)) return
         if (event == "removed") {
             if (navigationKeys.remove(sbn.key) && navigationKeys.isEmpty()) endSession()
             return
@@ -110,11 +109,22 @@ class MapsNotificationListener : NotificationListenerService() {
             Log.i(TAG, "navigation started")
             Notifications.postNavigationStarted(this)
         }
-        if (!NavigationSessionService.isRunning) NavigationSessionService.start(this)
+        // Started once per session, and again if Android killed it (or refused to start it).
+        // The service only says it runs once created, so give a start time before retrying.
+        val now = System.currentTimeMillis()
+        val requested = serviceRequestedAt
+        if (requested == null || (!NavigationSessionService.isRunning && now - requested >= RESTART_AFTER_MS)) {
+            serviceRequestedAt = now
+            NavigationSessionService.start(this)
+        }
     }
+
+    private fun isNavigation(sbn: StatusBarNotification) =
+        sbn.notification.category == NotificationCompat.CATEGORY_NAVIGATION
 
     private fun endSession() {
         Log.i(TAG, "navigation ended")
+        serviceRequestedAt = null
         NavigationSessionService.stop(this)
         Notifications.cancelNavigationStarted(this)
     }
@@ -130,6 +140,14 @@ class MapsNotificationListener : NotificationListenerService() {
         const val GOOGLE_MAPS = "com.google.android.apps.maps"
         private const val TAG = "WristpilotListener"
         private const val RETRY_MS = 3000L
+        private const val RESTART_AFTER_MS = 5000L
+
+        // Process-wide and main-thread only, so a rebound listener carries on the same session.
+        /** Keys of the Google Maps navigation notifications showing now. */
+        private val navigationKeys = mutableSetOf<String>()
+
+        /** When the keep-awake service was last asked to start this session; null between sessions. */
+        private var serviceRequestedAt: Long? = null
 
         @Volatile
         var server: SnapshotServer? = null

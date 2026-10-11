@@ -13,14 +13,15 @@ import android.provider.Settings
 import android.widget.Toast
 
 /**
- * The phone setup that keeps HyperOS 2 from killing or freezing Wristpilot and Zepp mid-drive.
- * Each step says what to do, whether it's done when Android lets us check, and opens the right
+ * The phone setup that keeps HyperOS 2 from killing or freezing Wristpilot and Zepp during a
+ * Navigation Session.
+ * Each item says what to do, whether it's done when Android lets us check, and opens the right
  * settings page when there is one. HyperOS pages are tried first, then Android's own.
  */
 object SetupChecklist {
     const val ZEPP = "com.huami.watch.hmwatchmanager"
 
-    class Step(
+    class Item(
         val title: String,
         val how: String,
         /** true / false when Android lets us check, null when it doesn't. */
@@ -29,21 +30,21 @@ object SetupChecklist {
         val open: ((Activity) -> Unit)? = null,
     )
 
-    val steps = listOf(
-        Step(
+    val items = listOf(
+        Item(
             "Allow restricted settings",
             "Only needed if Wristpilot is greyed out under notification access (installed from a " +
                 "file rather than adb): App info → ⋮ → Allow restricted settings.",
             done = { if (hasNotificationAccess(it)) true else null },
             button = "Open Wristpilot's App info",
         ) { open(it, appInfo(it.packageName)) },
-        Step(
+        Item(
             "Notification access for Wristpilot",
             "Switch on Wristpilot, so it can read Google Maps' navigation notification.",
             done = ::hasNotificationAccess,
             button = "Open notification access",
         ) { open(it, Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
-        Step(
+        Item(
             "Wristpilot may post notifications",
             "For \"Navigation started\" on the watch, and the notification that keeps Wristpilot " +
                 "awake during navigation.",
@@ -52,7 +53,7 @@ object SetupChecklist {
         ) {
             open(it, Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, it.packageName))
         },
-        Step(
+        Item(
             "Autostart on for Wristpilot",
             "So Wristpilot starts listening by itself after a reboot, without being opened.",
             done = { null },
@@ -66,25 +67,25 @@ object SetupChecklist {
                 appInfo(it.packageName),
             )
         },
-        Step(
+        Item(
             "Battery optimization off for Wristpilot",
             "Lets Android keep Wristpilot awake when navigation starts while the screen is off.",
             done = { ignoresBatteryOptimizations(it, it.packageName) },
             button = "Turn off battery optimization",
         ) { openBatteryOptimization(it) },
-        Step(
+        Item(
             "Battery saver \"No restrictions\" for Wristpilot",
             "App info → Battery saver → No restrictions.",
             done = { null },
             button = "Open Wristpilot's battery saver",
         ) { open(it, batterySaver(it.packageName, "Wristpilot"), appInfo(it.packageName)) },
-        Step(
+        Item(
             "Battery saver \"No restrictions\" for Zepp",
             "Zepp runs the watch's link to Wristpilot: App info → Battery saver → No restrictions.",
             done = { if (isInstalled(it, ZEPP)) null else false },
             button = "Open Zepp's battery saver",
         ) { open(it, batterySaver(ZEPP, "Zepp"), appInfo(ZEPP)) },
-        Step(
+        Item(
             "Zepp sends Wristpilot's notifications to the watch",
             "In Zepp: Device → Active Max → Notifications and Reminders → Notifications → switch on " +
                 "Wristpilot. Without it \"Navigation started\" never reaches the watch.",
@@ -94,7 +95,7 @@ object SetupChecklist {
             activity.packageManager.getLaunchIntentForPackage(ZEPP)?.let { open(activity, it) }
                 ?: Toast.makeText(activity, "Zepp is not installed", Toast.LENGTH_SHORT).show()
         },
-        Step(
+        Item(
             "Lock Wristpilot and Zepp in Recents",
             "Open Recents, long-press each app's card and tap the lock, so clearing Recents never " +
                 "closes them.",

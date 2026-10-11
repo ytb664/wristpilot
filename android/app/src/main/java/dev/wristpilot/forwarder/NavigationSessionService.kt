@@ -26,12 +26,20 @@ class NavigationSessionService : Service() {
     @SuppressLint("InlinedApi")
     override fun onCreate() {
         super.onCreate()
-        ServiceCompat.startForeground(
-            this,
-            Notifications.KEEP_AWAKE_ID,
-            Notifications.keepAwake(this),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-        )
+        try {
+            ServiceCompat.startForeground(
+                this,
+                Notifications.KEEP_AWAKE_ID,
+                Notifications.keepAwake(this),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+            )
+        } catch (e: Exception) {
+            // Uncaught, this would crash the whole process, notification listener included.
+            Log.e(TAG, "could not go foreground", e)
+            startError = e.javaClass.simpleName
+            stopSelf()
+            return
+        }
         wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Wristpilot:NavigationSession")
             .apply { acquire(WAKE_LOCK_MAX_MS) }
@@ -55,7 +63,7 @@ class NavigationSessionService : Service() {
     companion object {
         private const val TAG = "WristpilotSession"
 
-        /** A safety net: a session's wake lock never outlives a very long drive. */
+        /** A safety net: the wake lock never outlives even a very long Navigation Session. */
         private const val WAKE_LOCK_MAX_MS = 6 * 60 * 60 * 1000L
 
         @Volatile

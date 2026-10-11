@@ -2,7 +2,8 @@
 // after any drop, and treats a forwarder that falls silent as down: HyperOS can freeze the
 // forwarder with the socket still open, and then only the missing heartbeats tell.
 //
-// The forwarder sends a heartbeat ({ heartbeat }) every 2 s besides its Raw Guidance Snapshots.
+// The forwarder sends a heartbeat ({ heartbeat }) every 2 s (SnapshotServer.HEARTBEAT_MS) besides
+// its Raw Guidance Snapshots. Not the side service's own heartbeat to the watch.
 // Snapshots go to onSnapshot; heartbeats only prove the link. Call check(now) every second or so.
 
 export const RECONNECT_MS = 3000
@@ -60,6 +61,11 @@ export function createForwarderLink({
   }
 
   function drop() {
+    closeSocket()
+    reconnectLater()
+  }
+
+  function closeSocket() {
     const old = socket
     socket = null
     lastHeard = null
@@ -68,7 +74,6 @@ export function createForwarderLink({
         old.close()
       } catch (e) {}
     }
-    reconnectLater()
   }
 
   function reconnectLater() {
@@ -98,10 +103,7 @@ export function createForwarderLink({
       stopped = true
       if (reconnectTimer !== null) cancel(reconnectTimer)
       reconnectTimer = null
-      const old = socket
-      socket = null
-      lastHeard = null
-      if (old) old.close()
+      closeSocket()
     },
   }
 }

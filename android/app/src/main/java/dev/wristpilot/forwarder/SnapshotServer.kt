@@ -79,6 +79,7 @@ class SnapshotServer(
 
     companion object {
         const val PORT = 8786
+        /** The side service gives up after three missed beats (SILENT_AFTER_MS in forwarder-link.js). */
         const val HEARTBEAT_MS = 2000L
         private const val TAG = "WristpilotServer"
     }
