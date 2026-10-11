@@ -8,9 +8,24 @@ zepp/      Zepp OS project
   app-side/                side service: WebSocket → Guidance core → watch
   app-side/guidance-core/  Guidance core: all navigation logic, pure, tested
   page/                    watch app: renders the Turn Card View it receives
-zepp/scripts/timeline.js   prints a drive recording as a readable timeline
+zepp/scripts/timeline.js   prints a Drive Recording as a readable timeline
 scripts/env.sh             puts the project-local Android toolchain on PATH
+scripts/pre-push           git hook: refuses a push that mentions a private place (see Drive Recordings)
 ```
+
+## What the watch shows
+
+- **Waiting Screen** ("Waiting for Google Maps") while Wristpilot is open and no Navigation Session is running.
+- **Turn Card** during a Navigation Session: Google Maps' own arrow, the distance to the Maneuver, the street, and the ETA with the time left. If Google Maps sends no arrow, the instruction text shows in its place.
+- **"Arrived"** for 5 s at the end, then the Waiting Screen. A cancel goes straight back to the Waiting Screen.
+- **Stale Turn Card**: greyed out with "Disconnected" when nothing has come from the Navigation Phone for 5 s.
+- **Time and battery**: a grey line at the top of every Wristpilot screen (e.g. `17:42 · 85%`), from the watch itself, in its 12/24-hour setting. Wristpilot covers the watch face for the whole drive, so this stands in for it.
+
+Buzzes:
+- **One short buzz** for each new Maneuver. Google Maps' "0 m" placeholder (at the start and after a reroute) buzzes only if it's still there 2 s later; "Rerouting..." never buzzes.
+- **Two short buzzes** (the Turn-Now Alert) once per Maneuver, when the distance first drops to 100 m or less.
+
+There's no map yet: the Map Mirror is a prototype on branch `prototype/mini-map` (ticket 08).
 
 ## Toolchain (nothing installed globally)
 
@@ -58,6 +73,16 @@ The side service runs inside the Zepp app on the phone while Wristpilot is open 
 What to expect from tapping it on the watch: **most likely it's only a reminder.** Zepp OS documents opening a Mini Program from a notification only for notifications the Mini Program posts itself on the watch (`@zos/notification`, Zepp OS 3+). It documents nothing for notifications mirrored from the phone, and the Active Max manual only describes viewing and deleting them. So tapping probably shows the message and nothing more; open Wristpilot with the button shortcut. _(To be confirmed on the watch in ticket 09.)_
 
 **Button shortcut (the reliable way).** On the watch: Settings → Preferences → Shortcut Buttons → pick the button → **Wristpilot**. Pressing and holding that button then opens Wristpilot. Do it before driving: Wristpilot shows the Waiting Screen and switches to the Turn Card by itself when navigation starts.
+
+### Updating to the latest version
+
+After pulling new code on `main`:
+
+```sh
+cd zepp && npm test && npx zeus preview   # watch app: pick "Amazfit Active Max", scan the QR code in Zepp → Developer Mode → Scan
+```
+
+The phone app only needs reinstalling when `android/` changed (`git log -1 -- android/` shows the last change): build and `adb install -r` as below. That keeps notification access and the settings.
 
 ## Android forwarder (debug APK)
 
@@ -107,16 +132,27 @@ The Guidance core is tested against real drives recorded on the Navigation Phone
 1. Open **Wristpilot** on the phone and switch **Record drive** on before you start directions.
 2. Drive with Google Maps as usual. Every Google Maps notification post and removal is saved, including a 120×120 copy of the Maneuver arrow (48×48 before format v4).
 3. Switch **Record drive** off when you're done. Each on/off is one file, `drive-YYYYMMDD-HHMMSS.jsonl` (one Raw Guidance Snapshot per line).
-4. Get it off the phone: tap the recording in the list to share it (Drive, Telegram, email…), or over USB:
+4. Get it off the phone and into the fixtures folder, over USB:
    ```sh
-   adb pull /sdcard/Android/data/dev.wristpilot.forwarder/files/recordings/
+   mkdir -p /tmp/wristpilot-recordings
+   adb pull /sdcard/Android/data/dev.wristpilot.forwarder/files/recordings/ /tmp/wristpilot-recordings
+   mv /tmp/wristpilot-recordings/recordings/*.jsonl zepp/app-side/guidance-core/fixtures/
    ```
+   Or tap the recording in the phone's list to share it (Drive, Telegram, email…) and move it into `zepp/app-side/guidance-core/fixtures/` yourself.
 5. Read it:
    ```sh
-   cd zepp && npm run timeline -- path/to/drive-20261011-081500.jsonl
+   cd zepp && npm run timeline -- app-side/guidance-core/fixtures/drive-20261011-081500.jsonl
    ```
+6. Test the Guidance core against it: `npm test` from `zepp/` replays every recording in the fixtures folder (`drives.test.js`). It checks that the Turn Card shows Google Maps' distance, street and arrow, that every new Maneuver buzzes, that every drop below 100 m gives the Turn-Now Alert, and that buzzes never come less than 1 s apart.
 
-6. To test the Guidance core against it, put it in `zepp/app-side/guidance-core/fixtures/` and run `npm test` from `zepp/`: every recording there is replayed (`drives.test.js`).
+Recordings are **never committed**: they hold the real streets of each drive, and this repo is public. They live only in `zepp/app-side/guidance-core/fixtures/` on this Mac (and on the phone): `.gitignore` excludes `*.jsonl` there, so git never offers to commit them. Without recordings the replay tests skip. Hand-written tests and docs use made-up streets (`Jl. Alpha`, `Jl. Bravo Raya`, …).
 
-Recordings are **never committed**: they hold the real streets of each drive and this repo is public. `.gitignore` keeps them out, and a local pre-push hook (`.git/hooks/pre-push`, word list in `.git/private-words`) refuses any push that mentions a listed place. Without recordings the replay tests skip.
+A pre-push hook is the second guard: it refuses any push whose commits mention a word on a private list, such as a street near home. Set it up once per clone:
+
+```sh
+cp scripts/pre-push .git/hooks/pre-push
+printf '%s\n' 'First private street' 'Second private place' > .git/private-words   # one per line; stays in .git/, never pushed
+```
+
+Add new private names to `.git/private-words` when they show up.
 

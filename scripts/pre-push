@@ -1,0 +1,17 @@
+#!/bin/sh
+# Refuses a push whose commits mention any word in .git/private-words (one per line).
+# Install: cp scripts/pre-push .git/hooks/pre-push. The word list stays in .git/, never pushed.
+words="$(git rev-parse --git-common-dir)/private-words"
+[ -s "$words" ] || exit 0
+zero=0000000000000000000000000000000000000000
+while read local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue
+  if [ "$remote_sha" = "$zero" ]; then range="$local_sha --not --remotes"; else range="$remote_sha..$local_sha"; fi
+  hits=$(git log -p --format='%H %B' $range | grep -n -i -F -f "$words" | head -5)
+  if [ -n "$hits" ]; then
+    echo "pre-push: refusing to push $local_ref, it mentions a private place (see .git/private-words):" >&2
+    echo "$hits" | cut -c1-160 >&2
+    exit 1
+  fi
+done
+exit 0
