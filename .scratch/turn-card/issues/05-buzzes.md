@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 (Turn Card from the Guidance core).
 
-**Status:** in-progress
+**Status:** done
 
 - [x] Built test-first through the Guidance core seam: tests assert the Buzz command sequence for hand-written edge cases, including one shaped like the recorded drive's start (ticket 02's recording).
 - [ ] Buzz commands asserted for committed drive recordings. _(checked in ticket 09: the fixtures are committed there)_
