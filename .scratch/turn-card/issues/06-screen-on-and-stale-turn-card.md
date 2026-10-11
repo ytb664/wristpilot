@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 (Turn Card from the Guidance core).
 
-**Status:** in-progress
+**Status:** done
 
 - [x] While Google Maps is giving directions (a Turn Card on the watch), the page asks for the longest bright time Zepp OS allows (`setPageBrightTime`, about 24 days), and the swipe-right back gesture is blocked so a stray touch can't close Wristpilot (the button still leaves).
 - [ ] The watch never sleeps or falls back to the watch face on its own: Wristpilot stays on screen for the whole Navigation Session, however long (the user saw it return to the watch face after a while, 2026-10-11). _(checked in ticket 09)_
