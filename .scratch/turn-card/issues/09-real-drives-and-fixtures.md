@@ -17,6 +17,6 @@ Tickets 03–07 are marked done once everything an agent can do is built; every 
 
 - **03:** the Turn Card layout is readable on the watch; long street names end cleanly in "…"; a real drive shows correct distance, street and ETA; arrival shows "Arrived", cancel shows the Waiting Screen, a waypoint doesn't end the Navigation Session.
 - **04:** the arrow on the watch matches Google Maps; it looks sharp, draws without a visible delay, and is readable in sunlight and at night; when Google Maps sends no arrow (e.g. "Starting navigation…") the instruction shows in its place.
-- **05:** buzzes feel right and distinct.
+- **05:** the watch plays both vibrations; they feel right and distinct. Fixtures assert the Buzz commands. Decide from the recordings whether a jump from "0 m" back up to a bigger distance with the same arrow and street (seen on Jl. Alpha in ticket 02's recording) is a new Maneuver that should buzz again.
 - **06:** screen stays on and Wristpilot stays open through a whole drive; Bluetooth off on the phone shows the Stale Turn Card, on again recovers.
 - **07:** a full 20+ min drive with the phone screen off keeps guidance arriving on the watch; whether tapping "Navigation started" on the watch opens Wristpilot.

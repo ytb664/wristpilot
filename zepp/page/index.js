@@ -1,6 +1,7 @@
 // Turn Card page. Renders whatever Turn Card View the side service sends; no parsing here.
 import * as hmUI from '@zos/ui'
 import { getDeviceInfo } from '@zos/device'
+import { Vibrator } from '@zos/sensor'
 import { BasePage } from '@zeppos/zml/base-page'
 
 const { width: WIDTH, height: HEIGHT } = getDeviceInfo()
@@ -25,6 +26,7 @@ const TRIP_LINE = { x: 80, y: 365, w: WIDTH - 160, h: 40, text_size: 30, color: 
 Page(
   BasePage({
     build() {
+      this.vibrator = new Vibrator()
       this.arrow = hmUI.createWidget(hmUI.widget.CANVAS, ARROW)
       this.hasArrow = false
       // False until the page has been told an arrow (or none): views leave out an unchanged one.
@@ -66,6 +68,24 @@ Page(
 
     onCall({ method, params }) {
       if (method === 'turnCard.view') this.show(params)
+      else if (method === 'turnCard.buzz') this.buzz(params.buzz)
+    },
+
+    // Buzz commands from the Guidance core: one short buzz for a new Maneuver, a stronger
+    // double buzz for the Turn-Now Alert. Step patterns need API 3.6.
+    buzz(buzz) {
+      const type = this.vibrator.getType()
+      const steps = {
+        newManeuver: [{ type: type.STRONG_SHORT }],
+        turnNow: [
+          { type: type.URGENT, duration: 200 },
+          { type: type.PAUSE, duration: 150 },
+          { type: type.URGENT, duration: 200 },
+        ],
+      }[buzz]
+      if (!steps) return
+      this.vibrator.stop()
+      this.vibrator.start(steps)
     },
 
     // Google Maps' arrow as rects from the side service: { w, h, rects: [x, y, w, h, level, ...] },

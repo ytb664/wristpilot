@@ -39,9 +39,9 @@ AppSideService(
       this.showOnWatch(this.core.receive(snapshot, Date.now()))
     },
 
-    showOnWatch({ view }) {
-      if (!view) return
-      this.call({ method: 'turnCard.view', params: forWatch(view) })
+    showOnWatch({ view, buzzes }) {
+      if (view) this.call({ method: 'turnCard.view', params: forWatch(view) })
+      for (const buzz of buzzes) this.call({ method: 'turnCard.buzz', params: { buzz } })
     },
 
     onRequest(req, res) {

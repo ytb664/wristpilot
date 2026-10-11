@@ -9,9 +9,16 @@
 // A Turn Card View's arrow is Google Maps' arrow image as the forwarder sent it, or null when
 // there is none (the instruction shows instead). To keep Bluetooth traffic small, a view leaves
 // the arrow out when the watch already shows that same image: no arrow key means "keep it".
+//
+// Buzz commands: 'newManeuver' (one short buzz) when a Maneuver appears, 'turnNow' (the
+// Turn-Now Alert) once per Maneuver when its distance first drops to 100 m or below. A Maneuver
+// is its arrow, turn and street within a Navigation Session; distance-only re-posts never buzz.
 
 // How long "Arrived" stays up before the Waiting Screen.
 const ARRIVED_MS = 5_000
+
+// The Turn-Now Alert fires when the distance to the Maneuver first drops to this or below.
+const TURN_NOW_M = 100
 
 const NOTHING = { view: null, buzzes: [] }
 
@@ -67,15 +74,27 @@ export function createGuidanceCore() {
       const turn = instruction || title.rest
       const arrow = snapshot.icon || null
       // A Maneuver is its arrow, turn and street; a new one starts without a distance.
+      const buzzes = []
       if (!onCard || !sameArrow(onCard.arrow, arrow) || onCard.turn !== turn || onCard.street !== street) {
-        onCard = { arrow, turn, street, distance: '', sawRealDistance: false }
+        onCard = { arrow, turn, street, distance: '', sawRealDistance: false, turnNowDone: false }
+        // "Starting navigation…" has neither arrow nor road: nothing to turn onto yet.
+        if (arrow || street) buzzes.push('newManeuver')
       }
       const distance = title.distance || text.distance
       if (distance && !isZero(distance)) onCard.sawRealDistance = true
       // Google Maps opens a Maneuver at "0 m" before its first real distance: that is not
       // "the turn is here".
-      if (distance && onCard.sawRealDistance) onCard.distance = distance
-      return showManeuver(tripLine(snapshot.subText))
+      if (distance && onCard.sawRealDistance) {
+        // A Maneuver whose first distance is already within reach gets only its new-Maneuver
+        // buzz: two alerts at once would say nothing more.
+        const first = !onCard.distance
+        onCard.distance = distance
+        if (!onCard.turnNowDone && metres(distance) <= TURN_NOW_M) {
+          onCard.turnNowDone = true
+          if (!first) buzzes.push('turnNow')
+        }
+      }
+      return { view: showManeuver(tripLine(snapshot.subText)).view, buzzes }
     },
 
     current() {
@@ -128,6 +147,12 @@ function distanceText([, value, unit]) {
 
 function isZero(distance) {
   return parseFloat(distance) === 0
+}
+
+// "350 m" -> 350, "1.2 km" -> 1200.
+function metres(distance) {
+  const [value, unit] = distance.split(' ')
+  return parseFloat(value) * (unit === 'km' ? 1000 : 1)
 }
 
 function capitalise(text) {
