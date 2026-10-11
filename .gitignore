@@ -12,3 +12,7 @@ android/.kotlin/
 
 # Local isolated toolchain (conda env lives outside the repo)
 .tooling/
+
+# Drive Recordings dropped in the repo root: they hold real streets. Fixtures go in
+# zepp/app-side/guidance-core/fixtures/ once trimmed (ticket 09).
+/drive-*.jsonl

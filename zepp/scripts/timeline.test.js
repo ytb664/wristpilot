@@ -62,3 +62,16 @@ test('removals, v1 snapshots and unreadable lines still show up', () => {
   assert.match(out, /^line 2: unreadable$/m)
   assert.match(out, /^\+0:01\.0 {2}removed/m)
 })
+
+test('v3 snapshots are timed by when Google Maps posted them, and late deliveries are flagged', () => {
+  const out = formatTimeline([
+    snapshot({ v: 3, postedAt: 1_700_000_000_000, title: '300 m' }),
+    // Posted 10 s in, but the forwarder was frozen and only got it 12 minutes later.
+    snapshot({ v: 3, postedAt: 1_700_000_010_000, at: 1_700_000_730_000, title: '200 m' }),
+    snapshot({ v: 3, postedAt: 1_700_000_011_000, at: 1_700_000_011_500, title: '190 m' }),
+  ])
+
+  assert.match(out, /^\+0:10\.0 {2}posted .*v3.*delivered 720\.0 s late$/m)
+  assert.match(out, /^\+0:11\.0 {2}posted .*v3[^\n]*$/m)
+  assert.doesNotMatch(out, /^\+0:11\.0 .*late/m)
+})

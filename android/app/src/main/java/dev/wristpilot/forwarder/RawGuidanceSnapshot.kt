@@ -17,9 +17,11 @@ import org.json.JSONObject
  * Format history (recorded drives keep whatever version they were made with):
  *  - v1: event, at, key, text extras, ongoing, category.
  *  - v2: adds `icon`, the notification's large icon (the Maneuver arrow), or null.
+ *  - v3: adds `postedAt`, when Google Maps posted this update (null for removals). `at` is when
+ *    the forwarder got it, which can be minutes later if HyperOS froze the forwarder meanwhile.
  */
 object RawGuidanceSnapshot {
-    const val FORMAT_VERSION = 2
+    const val FORMAT_VERSION = 3
 
     /** The large icon is downscaled to ICON_SIZE × ICON_SIZE pixels. */
     const val ICON_SIZE = 48
@@ -33,6 +35,7 @@ object RawGuidanceSnapshot {
             .put("v", FORMAT_VERSION)
             .put("event", event)
             .put("at", at)
+            .put("postedAt", if (event == "posted") sbn.postTime else JSONObject.NULL)
             .put("key", sbn.key)
             .put("title", extras.getCharSequence(Notification.EXTRA_TITLE)?.toString() ?: "")
             .put("text", extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: "")

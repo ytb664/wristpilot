@@ -10,5 +10,6 @@
 - [ ] Find out (and record in the README) whether tapping that notification on the watch can open Wristpilot; if not, document it as reminder-only.
 - [ ] README documents setting a watch button shortcut to Wristpilot on the Active Max.
 - [ ] Forwarder status screen shows: notification access granted?, WebSocket client (side service) connected?, last snapshot time, and the HyperOS checklist (allow restricted settings, notification access, autostart on, battery saver "No restrictions" for Wristpilot and Zepp, lock both in Recents) with buttons that open each relevant settings page where possible.
+- [ ] The forwarder is never frozen during a Navigation Session. On 2026-10-11 HyperOS froze it for a whole 7-minute drive: Google Maps' updates were held back and delivered all at once at the end, so the watch stayed on the first Maneuver (see ticket 02, "Solved"). In a v3 recording, snapshots "delivered N s late" in `npm run timeline` show it happening.
 - [ ] Side service reconnects to the forwarder's WebSocket automatically after a drop.
 - [ ] **Needs the user:** one full real drive (20+ min) with the phone screen off and Google Maps navigating; guidance keeps arriving on the watch the whole time. Any failure is diagnosed and noted.

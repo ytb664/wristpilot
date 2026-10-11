@@ -8,6 +8,9 @@ import { fileURLToPath } from 'node:url'
 
 const INK = ' .:-=+*#%@'
 
+// Snapshots that reached the forwarder this much later than Google Maps posted them are flagged.
+const LATE_MS = 2000
+
 export function formatTimeline(lines) {
   const out = []
   let start = null
@@ -21,10 +24,14 @@ export function formatTimeline(lines) {
       out.push(`line ${i + 1}: unreadable`)
       return
     }
-    if (start === null) start = s.at
+    // v3+: time by when Google Maps posted it; v1/v2 only know when the forwarder got it.
+    const t = s.postedAt ?? s.at
+    if (start === null) start = t
+    const lag = s.at - t
     out.push(
-      `${elapsed(s.at - start)}  ${s.event}  v${s.v} ${s.ongoing ? 'ongoing' : 'not-ongoing'}` +
-        ` category=${s.category} key=${s.key}`,
+      `${elapsed(t - start)}  ${s.event}  v${s.v} ${s.ongoing ? 'ongoing' : 'not-ongoing'}` +
+        ` category=${s.category} key=${s.key}` +
+        (lag > LATE_MS ? `  delivered ${(lag / 1000).toFixed(1)} s late` : ''),
     )
     field(out, 'title', s.title)
     field(out, 'text', s.text)
