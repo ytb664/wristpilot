@@ -77,7 +77,7 @@ To see what Google Maps actually sends: `adb logcat -s WristpilotListener` (one 
 The Guidance core is tested against real drives recorded on the Navigation Phone.
 
 1. Open **Wristpilot** on the phone and switch **Record drive** on before you start directions.
-2. Drive with Google Maps as usual. Every Google Maps notification post and removal is saved, including a 48×48 copy of the Maneuver arrow.
+2. Drive with Google Maps as usual. Every Google Maps notification post and removal is saved, including a 120×120 copy of the Maneuver arrow (48×48 before format v4).
 3. Switch **Record drive** off when you're done. Each on/off is one file, `drive-YYYYMMDD-HHMMSS.jsonl` (one Raw Guidance Snapshot per line).
 4. Get it off the phone: tap the recording in the list to share it (Drive, Telegram, email…), or over USB:
    ```sh

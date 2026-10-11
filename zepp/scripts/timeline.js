@@ -64,19 +64,31 @@ function elapsed(ms) {
 }
 
 // "ga44": one byte per pixel, high nibble gray, low nibble alpha. Terminal characters are about
-// twice as tall as wide, so each text row averages two pixel rows. Ink is the alpha if the icon
-// has any transparency (an arrow on a clear background), otherwise the brightness.
+// twice as tall as wide, so each character averages a block twice as tall as wide; v4's 120×120
+// arrow is shrunk to at most ASCII_COLUMNS wide, v2/v3's 48×48 one is 1 pixel per column. Ink is
+// the alpha if the icon has any transparency (an arrow on a clear background), otherwise the
+// brightness.
+const ASCII_COLUMNS = 48
+
 function ascii({ w, h, format, data }) {
   if (format !== 'ga44') return [`(unknown icon format ${format})`]
   const bytes = Buffer.from(data, 'base64')
   const hasAlpha = bytes.some((b) => (b & 0x0f) < 0x0f)
   const ink = (x, y) => (hasAlpha ? bytes[y * w + x] & 0x0f : bytes[y * w + x] >> 4)
+  const step = Math.ceil(w / ASCII_COLUMNS)
   const rows = []
-  for (let y = 0; y < h; y += 2) {
+  for (let y = 0; y < h; y += 2 * step) {
     let row = ''
-    for (let x = 0; x < w; x++) {
-      const v = y + 1 < h ? (ink(x, y) + ink(x, y + 1)) / 2 : ink(x, y)
-      row += INK[Math.round((v / 15) * (INK.length - 1))]
+    for (let x = 0; x < w; x += step) {
+      let sum = 0
+      let count = 0
+      for (let by = y; by < Math.min(y + 2 * step, h); by++) {
+        for (let bx = x; bx < Math.min(x + step, w); bx++) {
+          sum += ink(bx, by)
+          count++
+        }
+      }
+      row += INK[Math.round((sum / count / 15) * (INK.length - 1))]
     }
     rows.push(row)
   }

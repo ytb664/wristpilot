@@ -19,12 +19,14 @@ import org.json.JSONObject
  *  - v2: adds `icon`, the notification's large icon (the Maneuver arrow), or null.
  *  - v3: adds `postedAt`, when Google Maps posted this update (null for removals). `at` is when
  *    the forwarder got it, which can be minutes later if HyperOS froze the forwarder meanwhile.
+ *  - v4: `icon` is 120×120 instead of 48×48, so the watch can draw it 1:1 at the top of the
+ *    Turn Card. Its `w` and `h` say the size, so older recordings still read.
  */
 object RawGuidanceSnapshot {
-    const val FORMAT_VERSION = 3
+    const val FORMAT_VERSION = 4
 
-    /** The large icon is downscaled to ICON_SIZE × ICON_SIZE pixels. */
-    const val ICON_SIZE = 48
+    /** The large icon is scaled to ICON_SIZE × ICON_SIZE pixels: the arrow's box on the Turn Card. */
+    const val ICON_SIZE = 120
 
     fun from(context: Context, event: String, sbn: StatusBarNotification, at: Long): JSONObject {
         val n = sbn.notification

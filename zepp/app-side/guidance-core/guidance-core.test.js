@@ -40,8 +40,22 @@ function replay(inputs) {
 }
 
 function turn(fields) {
-  return { screen: 'turn', distance: '', street: '', instruction: '', tripLine: '', ...fields }
+  return { screen: 'turn', arrow: null, distance: '', street: '', instruction: '', tripLine: '', ...fields }
 }
+
+// A Turn Card View for a re-post whose arrow is already on the watch: the image isn't resent.
+function turnSameArrow(fields) {
+  const { arrow, ...view } = turn(fields)
+  return view
+}
+
+// Google Maps' arrow as the forwarder sends it ("ga44": gray and alpha nibbles per pixel).
+function arrowIcon(bytes, size = 120) {
+  return { w: size, h: size, format: 'ga44', data: Buffer.alloc(size * size, bytes).toString('base64') }
+}
+
+const STRAIGHT = arrowIcon(0xff)
+const RIGHT = arrowIcon(0xf8)
 
 test('the Turn Card shows the distance, the street and the trip line', () => {
   const views = replay([
@@ -256,4 +270,93 @@ test('a street Google Maps only heads "toward" keeps that word', () => {
   const views = replay([[1_000, posted({ title: '230 m', text: 'toward Jl. H. Foxtrot' })]])
 
   assert.deepEqual(views, [[1_000, turn({ distance: '230 m', street: 'toward Jl. H. Foxtrot' })]])
+})
+
+test('Google Maps\' arrow goes on the Turn Card in place of the instruction', () => {
+  const views = replay([[1_000, posted({ title: '200 m', text: 'Turn right onto Jl. Sudirman', icon: RIGHT })]])
+
+  assert.deepEqual(views, [[1_000, turn({ arrow: RIGHT, distance: '200 m', street: 'Jl. Sudirman' })]])
+})
+
+test('re-posts with the same arrow do not resend the image', () => {
+  const views = replay([
+    [1_000, posted({ title: '350 m', text: 'Jl. Sudirman', icon: RIGHT })],
+    [2_000, posted({ title: '200 m', text: 'Jl. Sudirman', icon: RIGHT })],
+    [3_000, posted({ title: '90 m', text: 'Jl. Sudirman', icon: RIGHT })],
+  ])
+
+  assert.deepEqual(views, [
+    [1_000, turn({ arrow: RIGHT, distance: '350 m', street: 'Jl. Sudirman' })],
+    [2_000, turnSameArrow({ distance: '200 m', street: 'Jl. Sudirman' })],
+    [3_000, turnSameArrow({ distance: '90 m', street: 'Jl. Sudirman' })],
+  ])
+})
+
+test('the next Maneuver\'s arrow is sent when it differs, and not when it is the same', () => {
+  const views = replay([
+    [1_000, posted({ title: '50 m', text: 'Jl. Sudirman', icon: RIGHT })],
+    [2_000, posted({ title: '800 m', text: 'Jl. Thamrin', icon: STRAIGHT })],
+    [3_000, posted({ title: '400 m', text: 'Jl. Medan Merdeka', icon: STRAIGHT })],
+  ])
+
+  assert.deepEqual(views, [
+    [1_000, turn({ arrow: RIGHT, distance: '50 m', street: 'Jl. Sudirman' })],
+    [2_000, turn({ arrow: STRAIGHT, distance: '800 m', street: 'Jl. Thamrin' })],
+    [3_000, turnSameArrow({ distance: '400 m', street: 'Jl. Medan Merdeka' })],
+  ])
+})
+
+test('when Google Maps sends no arrow image, the instruction text shows instead', () => {
+  const views = replay([
+    [1_000, posted({ title: '200 m', text: 'Turn right onto Jl. Sudirman', icon: RIGHT })],
+    [2_000, posted({ title: '600 m', text: 'Keep left toward Jl. Tol Dalam Kota', icon: null })],
+  ])
+
+  assert.deepEqual(views, [
+    [1_000, turn({ arrow: RIGHT, distance: '200 m', street: 'Jl. Sudirman' })],
+    [2_000, turn({ distance: '600 m', street: 'Jl. Tol Dalam Kota', instruction: 'Keep left' })],
+  ])
+})
+
+test('a new arrow on the same street is a new Maneuver and does not keep the old distance', () => {
+  const views = replay([
+    [1_000, posted({ title: '90 m', text: 'Jl. Alpha', icon: STRAIGHT })],
+    [2_000, posted({ title: '', text: 'Jl. Alpha', icon: RIGHT })],
+  ])
+
+  assert.deepEqual(views, [
+    [1_000, turn({ arrow: STRAIGHT, distance: '90 m', street: 'Jl. Alpha' })],
+    [2_000, turn({ arrow: RIGHT, street: 'Jl. Alpha' })],
+  ])
+})
+
+test('a watch that opens mid-Navigation Session gets the current Turn Card with its arrow', () => {
+  const core = createGuidanceCore()
+  assert.equal(core.current(), null)
+  core.receive(posted({ title: '350 m', text: 'Jl. Sudirman', icon: RIGHT }), 1_000)
+  core.receive(posted({ title: '200 m', text: 'Jl. Sudirman', icon: RIGHT }), 2_000)
+
+  assert.deepEqual(core.current(), turn({ arrow: RIGHT, distance: '200 m', street: 'Jl. Sudirman' }))
+})
+
+test('after the Waiting Screen, the next Navigation Session sends its arrow again', () => {
+  const views = replay([
+    [1_000, posted({ title: '250 m', text: 'Jl. Alpha', icon: RIGHT })],
+    [2_000, removed({ title: '250 m', text: 'Jl. Alpha', icon: RIGHT })],
+    [3_000, posted({ title: '250 m', text: 'Jl. Alpha', icon: RIGHT })],
+  ])
+
+  assert.deepEqual(views, [
+    [1_000, turn({ arrow: RIGHT, distance: '250 m', street: 'Jl. Alpha' })],
+    [2_000, { screen: 'waiting' }],
+    [3_000, turn({ arrow: RIGHT, distance: '250 m', street: 'Jl. Alpha' })],
+  ])
+})
+
+test('a recording made before the bigger arrow (v2, 48×48) still shows its arrow', () => {
+  const small = arrowIcon(0xff, 48)
+  const { postedAt, ...v2 } = posted({ v: 2, title: '110 m', text: 'Jl. Alpha', icon: small })
+  const views = replay([[1_000, v2]])
+
+  assert.deepEqual(views, [[1_000, turn({ arrow: small, distance: '110 m', street: 'Jl. Alpha' })]])
 })

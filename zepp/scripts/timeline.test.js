@@ -51,6 +51,15 @@ test('the arrow icon is drawn as ASCII, and only again when it changes', () => {
   assert.match(out, /title: {4}10 m\n {2}icon: {5}\(none\)/)
 })
 
+test('a v4 arrow (120×120) is shrunk to fit a terminal', () => {
+  const big = { w: 120, h: 120, format: 'ga44', data: Buffer.alloc(120 * 120, 0xff).toString('base64') }
+  const out = formatTimeline([snapshot({ v: 4, title: '350 m', icon: big })])
+
+  const rows = out.split('\n').filter((row) => row.startsWith('    '))
+  assert.equal(rows.length, 20)
+  assert.ok(rows.every((row) => row === `    ${'@'.repeat(40)}`))
+})
+
 test('removals, v1 snapshots and unreadable lines still show up', () => {
   const out = formatTimeline([
     snapshot({ v: 1, icon: undefined, title: 'Head north' }),

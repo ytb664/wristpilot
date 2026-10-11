@@ -4,6 +4,11 @@
 //
 // receive(snapshot, now) for each Raw Guidance Snapshot; tick(now) when time passes without one.
 // Both return { view, buzzes }. view is null when the watch should stay as it is.
+// current() is the Turn Card View on the watch in full, for a watch that has just opened.
+//
+// A Turn Card View's arrow is Google Maps' arrow image as the forwarder sent it, or null when
+// there is none (the instruction shows instead). To keep Bluetooth traffic small, a view leaves
+// the arrow out when the watch already shows that same image: no arrow key means "keep it".
 
 // How long "Arrived" stays up before the Waiting Screen.
 const ARRIVED_MS = 5_000
@@ -13,13 +18,15 @@ const NOTHING = { view: null, buzzes: [] }
 export function createGuidanceCore() {
   let shown = null // the last Turn Card View sent to the watch
   let sessionKey = null // the notification key of the running Navigation Session
-  let current = null // the Maneuver on the Turn Card: { id, distance, sawRealDistance }
+  let current = null // the Maneuver on the Turn Card: { id, distance, sawRealDistance }, id = arrow + turn + street
   let arrivedAt = null // when "Arrived" went up, while it is up
 
   function show(view) {
     if (sameView(view, shown)) return NOTHING
+    const sent = { ...view }
+    if (view.arrow && shown?.screen === 'turn' && sameView(view.arrow, shown.arrow)) delete sent.arrow
     shown = view
-    return { view, buzzes: [] }
+    return { view: sent, buzzes: [] }
   }
 
   return {
@@ -43,7 +50,8 @@ export function createGuidanceCore() {
       const text = withoutDistance(normalise(snapshot.text))
       const { instruction, street } = maneuver(text.rest)
       const turn = instruction || title.rest
-      const id = `${turn}\n${street}`
+      const arrow = snapshot.icon || null
+      const id = `${arrow?.data}\n${turn}\n${street}`
       if (!current || current.id !== id) current = { id, distance: '', sawRealDistance: false }
       const distance = title.distance || text.distance
       if (distance && !isZero(distance)) current.sawRealDistance = true
@@ -52,11 +60,16 @@ export function createGuidanceCore() {
       if (distance && current.sawRealDistance) current.distance = distance
       return show({
         screen: 'turn',
+        arrow,
         distance: current.distance,
         street,
-        instruction: turn,
+        instruction: arrow ? '' : turn,
         tripLine: tripLine(snapshot.subText),
       })
+    },
+
+    current() {
+      return shown
     },
 
     tick(now) {

@@ -2,6 +2,7 @@
 // the Guidance core, and the watch. No navigation logic here.
 import { BaseSideService } from '@zeppos/zml/base-side'
 import { createGuidanceCore } from './guidance-core/index.js'
+import { arrowRects } from './arrow-rects.js'
 
 const FORWARDER_URL = 'ws://127.0.0.1:8786'
 const RECONNECT_MS = 3000
@@ -12,7 +13,6 @@ AppSideService(
   BaseSideService({
     onInit() {
       this.core = createGuidanceCore()
-      this.currentView = null
       this.connect()
       this.tickTimer = setInterval(() => this.showOnWatch(this.core.tick(Date.now())), TICK_MS)
     },
@@ -41,12 +41,11 @@ AppSideService(
 
     showOnWatch({ view }) {
       if (!view) return
-      this.currentView = view
-      this.call({ method: 'turnCard.view', params: view })
+      this.call({ method: 'turnCard.view', params: forWatch(view) })
     },
 
     onRequest(req, res) {
-      if (req.method === 'turnCard.current') res(null, this.currentView)
+      if (req.method === 'turnCard.current') res(null, forWatch(this.core.current()))
       else res('unknown method')
     },
 
@@ -58,3 +57,9 @@ AppSideService(
     },
   }),
 )
+
+// The watch draws the arrow as canvas rects; a view without an arrow key keeps the one shown.
+function forWatch(view) {
+  if (!view || !view.arrow) return view
+  return { ...view, arrow: arrowRects(view.arrow) }
+}
