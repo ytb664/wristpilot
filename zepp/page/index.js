@@ -4,8 +4,11 @@ import { getDeviceInfo } from '@zos/device'
 import { BasePage } from '@zeppos/zml/base-page'
 
 const { width: WIDTH, height: HEIGHT } = getDeviceInfo()
-const WAITING_TEXT = 'Waiting for Google Maps'
-const ARRIVED_TEXT = 'Arrived'
+// The screens that show a message instead of the Turn Card.
+const MESSAGES = {
+  waiting: { text: 'Waiting for Google Maps', text_size: 40 },
+  arrived: { text: 'Arrived', text_size: 72 },
+}
 
 const WHITE = 0xffffff
 const GREY = 0xaaaaaa
@@ -35,11 +38,10 @@ Page(
         w: WIDTH - 80,
         h: HEIGHT,
         color: WHITE,
-        text_size: 40,
         align_h: hmUI.align.CENTER_H,
         align_v: hmUI.align.CENTER_V,
         text_style: hmUI.text_style.WRAP,
-        text: WAITING_TEXT,
+        ...MESSAGES.waiting,
       })
       this.show({ screen: 'waiting' })
       // The page may open mid-Navigation Session: ask for the current view.
@@ -75,10 +77,7 @@ Page(
       for (const widget of this.turnCard) widget.setProperty(hmUI.prop.VISIBLE, onTurn)
       this.message.setProperty(hmUI.prop.VISIBLE, !onTurn)
       if (!onTurn) {
-        this.message.setProperty(hmUI.prop.MORE, {
-          text: view.screen === 'arrived' ? ARRIVED_TEXT : WAITING_TEXT,
-          text_size: view.screen === 'arrived' ? 72 : 40,
-        })
+        this.message.setProperty(hmUI.prop.MORE, MESSAGES[view.screen] || MESSAGES.waiting)
         return
       }
       this.instruction.setProperty(hmUI.prop.TEXT, view.instruction)
