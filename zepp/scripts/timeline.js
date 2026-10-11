@@ -24,14 +24,17 @@ export function formatTimeline(lines) {
       out.push(`line ${i + 1}: unreadable`)
       return
     }
-    // v3+: time by when Google Maps posted it; v1/v2 only know when the forwarder got it.
-    const t = s.postedAt ?? s.at
-    if (start === null) start = t
-    const lag = s.at - t
+    // v3+: time by when Google Maps posted it. v1/v2 snapshots and v3 removals only know when
+    // the forwarder got it, so after a frozen forwarder they can sit out of order.
+    const postedAt = s.postedAt ?? s.at
+    if (start === null) start = postedAt
+    const lag = s.at - postedAt
+    let note = ''
+    if (lag > LATE_MS) note = `  delivered ${(lag / 1000).toFixed(1)} s late`
+    else if (s.v >= 3 && s.postedAt == null) note = '  timed by delivery'
     out.push(
-      `${elapsed(t - start)}  ${s.event}  v${s.v} ${s.ongoing ? 'ongoing' : 'not-ongoing'}` +
-        ` category=${s.category} key=${s.key}` +
-        (lag > LATE_MS ? `  delivered ${(lag / 1000).toFixed(1)} s late` : ''),
+      `${elapsed(postedAt - start)}  ${s.event}  v${s.v} ${s.ongoing ? 'ongoing' : 'not-ongoing'}` +
+        ` category=${s.category} key=${s.key}${note}`,
     )
     field(out, 'title', s.title)
     field(out, 'text', s.text)
@@ -53,10 +56,11 @@ function field(out, name, value) {
 }
 
 function elapsed(ms) {
-  const tenths = Math.round(ms / 100)
+  const sign = ms < 0 ? '-' : '+'
+  const tenths = Math.round(Math.abs(ms) / 100)
   const min = Math.floor(tenths / 600)
   const sec = ((tenths % 600) / 10).toFixed(1).padStart(4, '0')
-  return `+${min}:${sec}`
+  return `${sign}${min}:${sec}`
 }
 
 // "ga44": one byte per pixel, high nibble gray, low nibble alpha. Terminal characters are about

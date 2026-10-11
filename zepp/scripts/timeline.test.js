@@ -75,3 +75,14 @@ test('v3 snapshots are timed by when Google Maps posted them, and late deliverie
   assert.match(out, /^\+0:11\.0 {2}posted .*v3[^\n]*$/m)
   assert.doesNotMatch(out, /^\+0:11\.0 .*late/m)
 })
+
+test('v3 removals have no post time, so they say they are timed by delivery', () => {
+  const out = formatTimeline([
+    // A removal that reached a frozen forwarder late, ahead of earlier posts.
+    snapshot({ v: 3, event: 'removed', postedAt: null, at: 1_700_000_010_000 }),
+    snapshot({ v: 3, postedAt: 1_700_000_000_000, at: 1_700_000_010_000, title: '50 m' }),
+  ])
+
+  assert.match(out, /^\+0:00\.0 {2}removed .*v3.* {2}timed by delivery$/m)
+  assert.match(out, /^-0:10\.0 {2}posted .*delivered 10\.0 s late$/m)
+})

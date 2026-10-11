@@ -15,3 +15,10 @@
 - [ ] Reroutes update the Turn Card to the new Maneuver.
 - [ ] Watch layout on 480×480 round: arrow top, large distance, street, small trip line; readable in the Zepp simulator.
 - [ ] Manual check (by the user): a real drive shows correct distance/street/ETA on the watch.
+
+## Seen in a real recording (ticket 02, 2026-10-11)
+
+- A Navigation Session opens with "Starting navigation…" (no text, no icon), then "0 m" + the first street before the first real distance: don't show "0 m" as if the Maneuver were here.
+- Google Maps sometimes posts the same update with an empty title.
+- Distances use a no-break space: "110\u00a0m".
+- v3 snapshots carry `postedAt` (Google Maps' post time) as well as `at` (when the forwarder got it).
