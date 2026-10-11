@@ -11,6 +11,8 @@ import java.net.InetSocketAddress
  * Local WebSocket server the Zepp side service connects to (ws://127.0.0.1:[PORT]).
  * Broadcasts every snapshot; a newly connected client first gets the latest snapshot
  * of each Google Maps notification still showing, so it can pick up mid-session.
+ * Also broadcasts a heartbeat ({"heartbeat": time}) every [HEARTBEAT_MS], so the side service
+ * can tell a frozen forwarder from a quiet road.
  */
 class SnapshotServer(
     /** Called (on the server's thread) if the port can't be bound; this instance is then dead. */
@@ -43,6 +45,10 @@ class SnapshotServer(
         }
     }
 
+    fun heartbeat() {
+        broadcast(JSONObject().put("heartbeat", System.currentTimeMillis()).toString())
+    }
+
     val clientCount: Int get() = connections.size
 
     override fun onOpen(conn: WebSocket, handshake: ClientHandshake) {
@@ -73,6 +79,7 @@ class SnapshotServer(
 
     companion object {
         const val PORT = 8786
+        const val HEARTBEAT_MS = 2000L
         private const val TAG = "WristpilotServer"
     }
 }

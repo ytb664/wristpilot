@@ -2,6 +2,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Keeping the forwarder awake during a Navigation Session (NavigationSessionService). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- "Navigation started" and the keep-awake notification (Android 13+). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- The setup checklist's button to switch battery optimization off for Wristpilot. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <!-- The setup checklist opens Zepp and its settings. -->
+    <queries>
+        <package android:name="com.huami.watch.hmwatchmanager" />
+    </queries>
 
     <application
         android:label="Wristpilot"
@@ -25,6 +38,15 @@
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
+        </service>
+
+        <service
+            android:name=".NavigationSessionService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Relays Google Maps navigation to a paired smartwatch for the length of a Navigation Session." />
         </service>
 
         <!-- Lets "Share" hand Drive Recordings to other apps. Authority must match DriveRecorder.shareIntent. -->

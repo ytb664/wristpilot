@@ -2,11 +2,9 @@ package dev.wristpilot.forwarder
 
 import android.app.Activity
 import android.content.ComponentName
-import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.view.Gravity
 import android.view.ViewGroup
@@ -20,7 +18,8 @@ import androidx.core.view.WindowInsetsCompat
 import java.io.File
 
 /**
- * One-screen status: is notification access granted, and is the watch link up.
+ * One-screen status: is notification access granted, is the watch link up, when did Google Maps
+ * last update, is the forwarder kept awake; then the HyperOS setup checklist.
  * Also the developer's drive recorder: a "Record drive" switch and the recordings to share.
  */
 class MainActivity : Activity() {
@@ -28,7 +27,9 @@ class MainActivity : Activity() {
     private lateinit var access: TextView
     private lateinit var link: TextView
     private lateinit var last: TextView
-    private lateinit var grant: Button
+    private lateinit var awake: TextView
+    /** Each checklist step's title line, refreshed with its ✓ / ✗. */
+    private val stepTitles = mutableListOf<TextView>()
     private lateinit var recordings: LinearLayout
     private var shownRecordings: List<File>? = null
     private var lastRebindAt = 0L
@@ -46,14 +47,30 @@ class MainActivity : Activity() {
         access = TextView(this).apply { textSize = 18f; gravity = Gravity.CENTER }
         link = TextView(this).apply { textSize = 18f; gravity = Gravity.CENTER; setPadding(0, pad / 2, 0, pad / 2) }
         last = TextView(this).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, pad / 2) }
-        grant = Button(this).apply {
-            text = "Grant notification access"
-            setOnClickListener { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-        }
-        val hint = TextView(this).apply {
-            gravity = Gravity.CENTER
-            text = "Android 15: if Wristpilot is greyed out in the list, open App info → ⋮ → " +
-                "Allow restricted settings, then try again."
+        awake = TextView(this).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, pad / 2) }
+        val checklist = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(TextView(this@MainActivity).apply {
+                text = "Setup for HyperOS"
+                textSize = 20f
+                setPadding(0, pad, 0, pad / 4)
+            })
+            SetupChecklist.steps.forEach { step ->
+                addView(TextView(this@MainActivity).apply {
+                    textSize = 16f
+                    setPadding(0, pad / 2, 0, 0)
+                    stepTitles += this
+                })
+                addView(TextView(this@MainActivity).apply { text = step.how })
+                val open = step.open
+                if (step.button != null && open != null) {
+                    addView(Button(this@MainActivity).apply {
+                        text = step.button
+                        isAllCaps = false
+                        setOnClickListener { open(this@MainActivity) }
+                    })
+                }
+            }
         }
         val record = Switch(this).apply {
             text = "Record drive"
@@ -82,8 +99,8 @@ class MainActivity : Activity() {
                 addView(access)
                 addView(link)
                 addView(last)
-                addView(grant)
-                addView(hint)
+                addView(awake)
+                addView(checklist)
                 addView(record)
                 addView(recordHint)
                 addView(recordings)
@@ -109,9 +126,8 @@ class MainActivity : Activity() {
     }
 
     private fun render() {
-        val granted = hasNotificationAccess()
+        val granted = SetupChecklist.hasNotificationAccess(this)
         access.text = if (granted) "✓ Notification access granted" else "✗ Notification access not granted"
-        grant.isEnabled = !granted
         val server = MapsNotificationListener.server
         link.text = when {
             !granted -> "✗ Watch link down (needs notification access)"
@@ -130,6 +146,21 @@ class MainActivity : Activity() {
             "Last Google Maps update: ${ago} s ago (${MapsNotificationListener.forwardedCount} so far)\n" +
                 if (it.event == "removed") "notification removed" else "${it.title} · ${it.text}"
         } ?: "No Google Maps update yet"
+        val startError = NavigationSessionService.startError
+        awake.text = when {
+            NavigationSessionService.isRunning -> "✓ Navigating: kept awake until the Navigation Session ends"
+            startError != null -> "✗ Android refused to keep Wristpilot awake ($startError). " +
+                "Turn off battery optimization for Wristpilot below."
+            else -> "Not navigating"
+        }
+        SetupChecklist.steps.forEachIndexed { i, step ->
+            val mark = when (step.done(this)) {
+                true -> "✓"
+                false -> "✗"
+                null -> "•"
+            }
+            stepTitles[i].text = "$mark ${step.title}"
+        }
         renderRecordings()
     }
 
@@ -157,12 +188,6 @@ class MainActivity : Activity() {
         if (now - lastRebindAt < REBIND_EVERY_MS) return
         lastRebindAt = now
         NotificationListenerService.requestRebind(ComponentName(this, MapsNotificationListener::class.java))
-    }
-
-    private fun hasNotificationAccess(): Boolean {
-        val me = ComponentName(this, MapsNotificationListener::class.java).flattenToString()
-        val enabled = Settings.Secure.getString(contentResolver, "enabled_notification_listeners") ?: ""
-        return enabled.split(':').any { it == me }
     }
 
     companion object {

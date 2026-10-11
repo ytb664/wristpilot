@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 (Walking skeleton).
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] Forwarder runs a foreground service while a Navigation Session is active and posts the "Navigation started" notification at session start.
 - [ ] README says what to expect from tapping that notification on the watch (opens Wristpilot, or reminder-only), as far as the Zepp OS docs tell.
