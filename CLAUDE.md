@@ -18,10 +18,10 @@ When the user says **"next ticket"** (or "continue", "do the next one"), do this
 2. List `.scratch/turn-card/issues/` and pick the **lowest-numbered ticket whose `**Status:**` is not `done` and whose "Blocked by" tickets are all `done`**. Say which ticket you're starting and why in one line. If a ticket is `in-progress`, resume it instead.
 3. Set its status to `in-progress`.
 4. Build it. Use `/mattpocock-skills:tdd` for anything touching the Guidance core: test only through its seam (Raw Guidance Snapshots + time in → Turn Card Views + Buzz commands out), never its internals. Keep the Android forwarder free of navigation logic.
-5. When an acceptance criterion says **"Needs the user"** or **"Manual check (by the user)"**, stop at that point and tell the user exactly what to do (on the phone, the watch, or in the car). Don't mark it done yourself and don't fake it.
+5. When an acceptance criterion says **"Manual check (by the user)"**, don't stop for it: the user tests everything on real drives in ticket 09, after 03–07 are built. Leave it unticked, add "_(checked in ticket 09)_", and tell the user in the report what it will cover. When a criterion says **"Needs the user"**, stop at that point and tell the user exactly what to do (on the phone, the watch, or in the car). Never mark a user's check done yourself and never fake it.
 6. Commit the ticket's work on `main` with a message starting with the ticket number, e.g. `03: Turn Card from the Guidance core`.
 7. Run **`/mattpocock-skills:code-review`** on that commit (review since the commit before it, against this ticket as the spec). Fix every real finding, re-run the tests, and commit the fixes as `NN: address code review`.
-8. Tick the acceptance criteria that are met. Set the status to `done` only when all are met; otherwise leave it `in-progress` and list what's still waiting on the user.
+8. Tick the acceptance criteria that are met. Set the status to `done` when all are met, apart from manual checks deferred to ticket 09; otherwise leave it `in-progress` and list what's still waiting on the user.
 9. Finish with a short report: what was built, review findings and fixes, what the user must check by hand, and which ticket is next.
 
 One ticket per session. Don't start the next ticket in the same session; tell the user to `/clear` and say "next ticket".

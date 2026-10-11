@@ -32,8 +32,8 @@ I keep using Google Maps exactly as I do today. A small Wristpilot Android app r
 ### Reading the Turn Card
 
 8. As a driver, I want a large turn arrow at the top of the Turn Card, so that I can recognise the turn in a fraction of a second.
-9. As a driver, I want the arrow to match the one Google Maps shows (left, right, slight, sharp, U-turn, keep left/right, roundabout, merge, ramp, straight, arrive), so that the watch and the phone never disagree.
-10. As a driver, I want a plain generic arrow plus the instruction text when Wristpilot can't recognise Google Maps' arrow, so that I still get guidance for unusual maneuvers.
+9. As a driver, I want the watch to show Google Maps' own arrow image, so that the watch and the phone never disagree.
+10. As a driver, I want the instruction text shown in place of the arrow when Google Maps sends no arrow image, so that I still get guidance.
 11. As a driver, I want the distance to the turn in large digits (for example "350 m" or "1.2 km"), so that I can judge when to turn.
 12. As a driver, I want the distance to count down as I drive, so that the Turn Card stays current between Maneuvers.
 13. As a driver, I want the street name the Maneuver leads onto, so that I can confirm I'm turning onto the right road.
@@ -98,18 +98,16 @@ I keep using Google Maps exactly as I do today. A small Wristpilot Android app r
 ### Guidance core behaviour
 
 - **Session tracking:** a Navigation Session starts with the first Google Maps navigation snapshot and ends when the notification is removed or arrival is detected. Arrival yields an "Arrived" view for a few seconds, then the Waiting Screen. Removal without arrival (cancel) goes straight to the Waiting Screen. A waypoint arrival during a multi-stop route does not end the session.
-- **Maneuver recognition:** the turn is classified from the arrow icon (following the approach in starpath, which classifies Google Maps' large icon because the text is often icon-only). The text is a fallback (English only, since the Navigator runs in English). Anything unrecognised becomes a generic arrow plus the instruction text.
-- **Maneuver kinds** (initial set): straight, slight left/right, left/right, sharp left/right, U-turn, keep left/right, merge, ramp left/right, roundabout (with exit number when available in text), arrive, unknown.
-- **Deduplication:** a Maneuver is identified by kind + street + session. Re-posts that only change the distance update the view but never count as a new Maneuver.
+- **Arrow:** Google Maps' own arrow image (the notification's large icon) is mirrored to the watch as-is; the core does not classify turns. When there is no arrow image, the instruction text is shown instead. _(Changed 2026-10-11 at the user's request; the earlier plan classified the icon into Maneuver kinds and showed bundled arrow images.)_
+- **Deduplication:** a Maneuver is identified by arrow image + street + session. Re-posts that only change the distance update the view but never count as a new Maneuver.
 - **Distance:** parsed from the instruction text ("in 200 m", "350 m", "1.2 km"), metric units as Google Maps shows them. If the text has no distance, show none rather than guess.
 - **Trip line:** arrival time and time remaining parsed from the trip line (e.g. "13 min · 3.5 km · 14:32 ETA"). Missing parts are omitted.
 - **Buzz rules:** one short buzz per new Maneuver; one Turn-Now Alert per Maneuver when the distance first drops to 100 m or below; no Turn-Now Alert if the Maneuver appears already at or under 100 m; never buzz on distance-only updates.
-- **Turn Card View** (core → watch): screen kind (waiting / turn / arrived), Maneuver kind, distance text, street text, trip line text, and fallback instruction text for unknown Maneuvers. The watch does no parsing.
+- **Turn Card View** (core → watch): screen kind (waiting / turn / arrived), Google Maps' arrow image (sent only when it changes, to keep Bluetooth traffic small), distance text, street text, trip line text, and fallback instruction text when there is no arrow image. The watch does no parsing.
 
 ### Watch app
 
-- Layout on the round 480×480 screen, top to bottom: large arrow (bundled images, one per Maneuver kind), large distance digits, street name (truncated to fit), small trip line.
-- Arrow images ship inside the watch app; no images are sent at runtime in v1.
+- Layout on the round 480×480 screen, top to bottom: large arrow (Google Maps' arrow image, drawn from the received bitmap), large distance digits, street name (truncated to fit), small trip line.
 - During a Navigation Session: keep the page bright and pause wrist-drop screen-off; set relaunch-on-wake so the app isn't closed when the screen dims. Restore defaults when the session ends.
 - Buzzes use the Zepp OS vibrator (custom step patterns are available from API 3.6; short single for a new Maneuver, double for the Turn-Now Alert).
 - Stale Turn Card: if no message arrives for a few seconds (target 5 s, tune on real drives), grey out the current Turn Card and add a "disconnected" mark; clear it on the next message.
@@ -126,7 +124,7 @@ I keep using Google Maps exactly as I do today. A small Wristpilot Android app r
 
 - **One seam: the Guidance core.** Tests feed it a sequence of Raw Guidance Snapshots with timestamps and assert only its outputs: the sequence of Turn Card Views and Buzz commands. Tests never reach into the core's internal state, classifier internals, or parsing helpers.
 - **Fixtures are real drive recordings** captured on the Redmi 13C with the Android forwarder's recording mode, trimmed and committed. They must cover at least: a normal multi-turn drive, icon-only instructions ("40 m" + street with no turn word), repeated re-posts every 10–20 m, a reroute, a roundabout, a highway ramp/merge, arrival, cancel, and a multi-stop route. Small hand-written snapshot sequences are fine for single-rule cases (e.g. the Turn-Now Alert not firing when a Maneuver appears under 100 m).
-- **Arrow recognition** is tested through the same seam: recorded snapshots with known turns must produce the expected Maneuver kind in the Turn Card View.
+- **Arrow mirroring** is tested through the same seam: snapshots with an arrow image put that image in the Turn Card View, only when it changes.
 - **Watch app:** only the stale-timeout behaviour is tested (messages in, elapsed time → stale or not). Rendering is checked by eye in the Zepp simulator and on the watch.
 - **Android forwarder:** no automated tests; it holds no logic. Checked manually on the Redmi against the setup checklist and a real drive.
 - **Prior art:** none in this repo yet (it's empty). starpath's parser and dedup code and Ring-Map's WebSocket bridge are references for behaviour, not test structure.
@@ -135,7 +133,6 @@ I keep using Google Maps exactly as I do today. A small Wristpilot Android app r
 ## Out of Scope
 
 - The Mini Map (screen mirror or self-drawn map). It gets its own prototype ticket, judged by: at least one update every 2 s, no more than about 2 s lag, and readable at a glance on 480×480. If that fails, a self-drawn map without a route line; if both fail, no Mini Map.
-- Sending Google Maps' own arrow images to the watch (possible later if the Mini Map prototype shows image transfer is fast).
 - iPhone support (impossible, see ADR 0001 and the research report).
 - Any routing of our own, or any Navigator other than Google Maps.
 - Languages other than English for the Navigator's text.

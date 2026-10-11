@@ -1,13 +1,12 @@
-# 04: Turn arrows
+# 04: Google Maps' arrow on the watch
 
-**What to build:** The Turn Card shows the correct arrow for each Maneuver, matching what Google Maps shows: straight, slight left/right, left/right, sharp left/right, U-turn, keep left/right, merge, ramp left/right, roundabout (with exit number when the text has it), arrive. The Guidance core recognises the Maneuver kind from Google Maps' arrow icon (following starpath's approach, since Google Maps often sends icon-only instructions), falling back to the English text. Anything unrecognised shows a generic arrow plus the instruction text. Arrow images are bundled in the watch app; no images are sent at runtime.
+**What to build:** The Turn Card shows Google Maps' own arrow image, so the watch always matches the phone, including roundabouts, ramps and anything unusual. The Android forwarder already sends the notification's large icon in each Raw Guidance Snapshot (ticket 02); this ticket sends it at a size that looks sharp at the top of the 480×480 Turn Card, passes it through the Guidance core into the Turn Card View, and draws it on the watch. No turn classification and no bundled arrow images (changed 2026-10-11 at the user's request).
 
 **Blocked by:** 03 (Turn Card from the Guidance core).
 
 **Status:** ready-for-agent
 
-- [ ] Built test-first through the Guidance core seam: recorded snapshots with known turns produce the expected Maneuver kind in the Turn Card View, including icon-only instructions.
-- [ ] Text fallback works when the icon is missing or unrecognised; unknown → generic arrow + instruction text.
-- [ ] Watch app ships one arrow image per Maneuver kind, in the format Zepp OS requires, sized for the top of the 480×480 Turn Card.
-- [ ] Every recorded fixture turn is classified; any misclassification found is added as a test case.
-- [ ] Manual check (by the user): arrows on the watch match Google Maps during a real drive.
+- [ ] The forwarder's arrow bitmap is big enough to look sharp at the top of the Turn Card (pick the size from the space the layout gives the arrow), bumping the snapshot format version; older recordings still load.
+- [ ] Built test-first through the Guidance core seam: a snapshot with an arrow image puts it in the Turn Card View; the image is sent only when it changes (re-posts with the same arrow don't resend it); no arrow image → the instruction text shows instead.
+- [ ] The watch draws the arrow from the received bitmap (e.g. on a canvas, or converted to an image file, whichever Zepp OS 4.2 on the Active Max handles smoothly), readable in sunlight and at night.
+- [ ] Manual check (by the user): the arrow on the watch matches Google Maps during a real drive.
