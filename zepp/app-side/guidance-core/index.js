@@ -20,13 +20,21 @@ const ARRIVED_MS = 5_000
 // The Turn-Now Alert fires when the distance to the Maneuver first drops to this or below.
 const TURN_NOW_M = 100
 
+// After a Maneuver reached "0 m", a jump back up to this or more is the next turn, not the car
+// creeping on past the turn ("0 m", "10 m", "20 m" was recorded before the next Maneuver).
+const NEXT_TURN_M = 50
+
+// A new-Maneuver buzz this soon after the last buzz is dropped.
+const BUZZ_GAP_MS = 2_000
+
 const NOTHING = { view: null, buzzes: [] }
 
 export function createGuidanceCore() {
   let shown = null // the last Turn Card View sent to the watch
   let sessionKey = null // the notification key of the running Navigation Session
-  let onCard = null // the Maneuver on the Turn Card: { arrow, turn, street, distance, sawRealDistance, turnNowDone }
+  let onCard = null // the Maneuver on the Turn Card: { arrow, turn, street, distance, sawRealDistance, reachedTurn, turnNowDone }
   let arrivedAt = null // when "Arrived" went up, while it is up
+  let lastBuzzAt = null // when the watch last buzzed
 
   // The view goes out only if it changed; buzzes always do.
   function show(view, buzzes = []) {
@@ -75,16 +83,25 @@ export function createGuidanceCore() {
       // previous Maneuver's arrow. Keep the Maneuver (arrow, distance) and take only the trip line.
       const rePost = !normalise(snapshot.title) && !text.distance && street === onCard?.street
       if (rePost) return showManeuver(tripLine(snapshot.subText))
+      // Recorded: "Rerouting..." in the text, nothing else, between two Maneuvers. It shows, but
+      // it isn't a Maneuver: no buzz, and the Maneuver after it is compared with the one before.
+      if (isRerouting(street)) {
+        return show({ screen: 'turn', arrow: null, distance: '', street, instruction: '', tripLine: tripLine(snapshot.subText) })
+      }
       const turn = instruction || title.rest
       const arrow = snapshot.icon || null
+      const distance = title.distance || text.distance
       // A Maneuver is its arrow, turn and street; a new one starts without a distance.
+      // Recorded: two turns in a row with the same arrow onto the same street. The first counts
+      // down to "0 m", then the distance jumps back up for the second.
+      const nextTurn = onCard?.reachedTurn && distance && metres(distance) >= NEXT_TURN_M
       const buzzes = []
-      if (!onCard || !sameArrow(onCard.arrow, arrow) || onCard.turn !== turn || onCard.street !== street) {
-        onCard = { arrow, turn, street, distance: '', sawRealDistance: false, turnNowDone: false }
+      if (!onCard || !sameArrow(onCard.arrow, arrow) || onCard.turn !== turn || onCard.street !== street || nextTurn) {
+        onCard = { arrow, turn, street, distance: '', sawRealDistance: false, reachedTurn: false, turnNowDone: false }
         if (!isStarting(turn)) buzzes.push('newManeuver')
       }
-      const distance = title.distance || text.distance
       if (distance && !isZero(distance)) onCard.sawRealDistance = true
+      if (distance && isZero(distance) && onCard.sawRealDistance) onCard.reachedTurn = true
       // Google Maps opens a Maneuver at "0 m" before its first real distance: that is not
       // "the turn is here".
       if (distance && onCard.sawRealDistance) {
@@ -96,6 +113,10 @@ export function createGuidanceCore() {
           if (!buzzes.length) buzzes.push('turnNow')
         }
       }
+      // Two short buzzes this close feel like the Turn-Now Alert. Recorded after reroutes: the
+      // "0 m" placeholder, then the real Maneuver under a second later. Only the first buzzes.
+      if (buzzes[0] === 'newManeuver' && lastBuzzAt !== null && now - lastBuzzAt < BUZZ_GAP_MS) buzzes.shift()
+      if (buzzes.length) lastBuzzAt = now
       return showManeuver(tripLine(snapshot.subText), buzzes)
     },
 
@@ -150,6 +171,10 @@ function distanceText([, value, unit]) {
 // Google Maps' placeholder while it works out the first Maneuver: nothing to turn onto yet.
 function isStarting(turn) {
   return /^starting navigation/i.test(turn)
+}
+
+function isRerouting(street) {
+  return /^rerouting\b/i.test(street)
 }
 
 function isZero(distance) {

@@ -419,30 +419,30 @@ test('the Turn-Now Alert fires once, when the distance first drops to 100 m or b
 test('a Maneuver that appears at 100 m or closer only gets the new-Maneuver buzz', () => {
   const sent = buzzes([
     [1_000, posted({ title: '0 m', text: 'Jl. Alpha', icon: STRAIGHT })],
-    [2_000, posted({ title: '100 m', text: 'Jl. Charlie', icon: RIGHT })],
-    [3_000, posted({ title: '90 m', text: 'Jl. Charlie', icon: RIGHT })],
-    [4_000, posted({ title: '10 m', text: 'Jl. Charlie', icon: RIGHT })],
+    [30_000, posted({ title: '100 m', text: 'Jl. Charlie', icon: RIGHT })],
+    [31_000, posted({ title: '90 m', text: 'Jl. Charlie', icon: RIGHT })],
+    [40_000, posted({ title: '10 m', text: 'Jl. Charlie', icon: RIGHT })],
   ])
 
   assert.deepEqual(sent, [
     [1_000, 'newManeuver'],
-    [2_000, 'newManeuver'],
+    [30_000, 'newManeuver'],
   ])
 })
 
 test('a reroute to a different Maneuver buzzes as new and gets its own Turn-Now Alert', () => {
   const sent = buzzes([
     [1_000, posted({ title: '120 m', text: 'Turn left onto Jl. Alpha', icon: RIGHT })],
-    [2_000, posted({ title: '90 m', text: 'Turn left onto Jl. Alpha', icon: RIGHT })],
-    [3_000, posted({ title: '600 m', text: 'Turn right onto Jl. Salemba', icon: STRAIGHT })],
-    [4_000, posted({ title: '100 m', text: 'Turn right onto Jl. Salemba', icon: STRAIGHT })],
+    [10_000, posted({ title: '90 m', text: 'Turn left onto Jl. Alpha', icon: RIGHT })],
+    [20_000, posted({ title: '600 m', text: 'Turn right onto Jl. Salemba', icon: STRAIGHT })],
+    [80_000, posted({ title: '100 m', text: 'Turn right onto Jl. Salemba', icon: STRAIGHT })],
   ])
 
   assert.deepEqual(sent, [
     [1_000, 'newManeuver'],
-    [2_000, 'turnNow'],
-    [3_000, 'newManeuver'],
-    [4_000, 'turnNow'],
+    [10_000, 'turnNow'],
+    [20_000, 'newManeuver'],
+    [80_000, 'turnNow'],
   ])
 })
 
@@ -501,5 +501,67 @@ test('a Maneuver that opened at "0 m" gets its Turn-Now Alert when its first rea
   assert.deepEqual(sent, [
     [1_000, 'newManeuver'],
     [60_000, 'turnNow'],
+  ])
+})
+
+test('a second turn with the same arrow and street, right after the first reached "0 m", buzzes as new', () => {
+  // As recorded twice: two turns in a row onto the same street with the same arrow. The first
+  // counts down to "0 m", then Google Maps jumps to "100 m" for the second.
+  const sent = buzzes([
+    [1_000, posted({ title: '300 m', text: 'Jl. Golf', icon: RIGHT })],
+    [20_000, posted({ title: '90 m', text: 'Jl. Golf', icon: RIGHT })],
+    [30_000, posted({ title: '0 m', text: 'Jl. Golf', icon: RIGHT })],
+    [31_000, posted({ title: '', text: 'Jl. Golf', icon: RIGHT })],
+    [33_000, posted({ title: '100 m', text: 'Jl. Golf', icon: RIGHT })],
+    [40_000, posted({ title: '50 m', text: 'Jl. Golf', icon: RIGHT })],
+  ])
+
+  assert.deepEqual(sent, [
+    [1_000, 'newManeuver'],
+    [20_000, 'turnNow'],
+    [33_000, 'newManeuver'],
+  ])
+})
+
+test('"Rerouting..." shows on the Turn Card but is not a Maneuver: no buzz, and the same Maneuver after it does not buzz again', () => {
+  const tripLine = '4 min · 1.4 km · 5:33 PM ETA'
+  const { views, buzzes: sent } = drive([
+    [1_000, posted({ title: '0 m', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
+    [60_000, posted({ title: '', text: 'Rerouting...' })],
+    [60_300, posted({ title: '0 m', text: 'Jl. Alpha', subText: tripLine, icon: STRAIGHT })],
+  ])
+
+  assert.deepEqual(sent, [[1_000, 'newManeuver']])
+  assert.deepEqual(views[1], [60_000, turn({ street: 'Rerouting...' })])
+  assert.deepEqual(views[2], [60_300, turn({ arrow: STRAIGHT, street: 'Jl. Alpha', tripLine: 'ETA 5:33 PM · 4 min' })])
+})
+
+test('the car creeping on past a turn ("0 m", "10 m", "20 m") is not the next turn', () => {
+  const sent = buzzes([
+    [1_000, posted({ title: '150 m', text: 'Jl. Bravo Raya', icon: RIGHT })],
+    [20_000, posted({ title: '0 m', text: 'Jl. Bravo Raya', icon: RIGHT })],
+    [24_000, posted({ title: '10 m', text: 'Jl. Bravo Raya', icon: RIGHT })],
+    [26_000, posted({ title: '20 m', text: 'Jl. Bravo Raya', icon: RIGHT })],
+  ])
+
+  assert.deepEqual(sent, [
+    [1_000, 'newManeuver'],
+    [20_000, 'turnNow'],
+  ])
+})
+
+test('two new Maneuvers within 2 s buzz once: two short buzzes that close feel like the Turn-Now Alert', () => {
+  // As recorded after a reroute: the "0 m" placeholder, then the real Maneuver 0.6 s later.
+  const sent = buzzes([
+    [1_000, posted({ title: '90 m', text: 'Jl. Charlie', icon: RIGHT })],
+    [20_000, posted({ title: '', text: 'Rerouting...' })],
+    [20_400, posted({ title: '0 m', text: 'Jl. Alpha', icon: STRAIGHT })],
+    [21_000, posted({ title: '100 m', text: 'Jl. Alpha', icon: RIGHT })],
+    [24_000, posted({ title: '90 m', text: 'Jl. Alpha', icon: RIGHT })],
+  ])
+
+  assert.deepEqual(sent, [
+    [1_000, 'newManeuver'],
+    [20_400, 'newManeuver'],
   ])
 })

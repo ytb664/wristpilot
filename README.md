@@ -116,5 +116,7 @@ The Guidance core is tested against real drives recorded on the Navigation Phone
    cd zepp && npm run timeline -- path/to/drive-20261011-081500.jsonl
    ```
 
-Committed recordings live in `zepp/app-side/guidance-core/fixtures/`, indexed in its README.
+6. To test the Guidance core against it, put it in `zepp/app-side/guidance-core/fixtures/` and run `npm test` from `zepp/`: every recording there is replayed (`drives.test.js`).
+
+Recordings are **never committed**: they hold the real streets of each drive and this repo is public. `.gitignore` keeps them out, and a local pre-push hook (`.git/hooks/pre-push`, word list in `.git/private-words`) refuses any push that mentions a listed place. Without recordings the replay tests skip.
 

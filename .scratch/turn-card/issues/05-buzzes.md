@@ -7,7 +7,7 @@
 **Status:** done
 
 - [x] Built test-first through the Guidance core seam: tests assert the Buzz command sequence for hand-written edge cases, including one shaped like the recorded drive's start (ticket 02's recording).
-- [ ] Buzz commands asserted for committed drive recordings. _(checked in ticket 09: the fixtures are committed there)_
+- [x] Buzz commands asserted for ~~committed~~ the drive recordings. _(done in ticket 09: `drives.test.js` replays the local, uncommitted recordings)_
 - [x] Maneuver identity = arrow image + street + session, so re-posts never count as a new Maneuver. (The turn text is part of it too, as built in ticket 03: without an arrow it is the only thing that tells two Maneuvers on one street apart.)
 - [x] Rules covered by tests: new-Maneuver buzz once; Turn-Now Alert once at ≤100 m; no Turn-Now Alert when a Maneuver appears at ≤100 m; no buzz on distance-only updates; reroute to a different Maneuver counts as new.
 - [x] Watch code plays a short single vibration (`STRONG_SHORT`) and a distinct double vibration (`STRONG_SHORT`, pause 150 ms, `STRONG_SHORT`) through the Zepp OS vibrator's step patterns (API ≥ 3.6); `zeus build` passes.
