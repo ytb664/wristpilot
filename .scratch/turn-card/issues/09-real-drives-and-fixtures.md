@@ -4,10 +4,11 @@
 
 **Blocked by:** 03, 04, 05, 06, 07, 08, 10 (the user finishes every ticket before driving).
 
-**Status:** ready-for-agent
+**Status:** in-progress
 
 - [ ] **Needs the user:** record real drives covering: normal multi-turn drive, icon-only instruction ("40 m" + street, no turn word), reroute, roundabout, highway ramp/merge, arrival, cancel, multi-stop route. The agent must stop and ask the user to do this.
-- [ ] Recordings are trimmed if huge, any personal home/work addresses the user wants hidden are noted, and the fixtures are committed in `zepp/app-side/guidance-core/fixtures/` with the index filled in.
+- [ ] Recordings are trimmed if huge and the fixtures are committed in `zepp/app-side/guidance-core/fixtures/` with the index filled in.
+- [ ] **No real place in the repo.** The recordings start and end at the user's home and the GitHub repo is public, so every street, place and address in a fixture (the `text`, `title` and `textLines` fields, and destination names) is replaced with a made-up one before it is committed, consistently within a fixture so Maneuver identity still works. Hand-written tests and docs use made-up streets too (`Jl. Alpha`, `Jl. Bravo Raya`, …). The raw recordings stay uncommitted (`drive-*.jsonl` is gitignored). A local pre-push hook (`.git/hooks/pre-push`, word list in `.git/private-words`, neither is pushed) refuses any push that mentions a word on the list; add new private names there when they show up.
 - [ ] Guidance core tests replay each fixture through the seam and assert the Turn Card Views and Buzz commands; every mismatch with what Google Maps showed becomes a test case and is fixed.
 - [ ] The manual checks still open in tickets 03–07 (listed below) are done on these drives and ticked there.
 - [ ] Ticket 10's lock check (listed below) is done if the Map Mirror works unlocked and capture stops on lock, its result goes into `docs/research/map-mirror-while-locked.md`, and the check is ticked in ticket 10.
