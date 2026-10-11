@@ -12,3 +12,7 @@
 - [ ] Stale timeout logic on the watch is tested (messages in + elapsed time → stale or not); timeout is a single tunable constant (start at 5 s).
 - [ ] Stale Turn Card renders greyed out with a clear "disconnected" mark; the next message restores the normal Turn Card.
 - [ ] Manual check (by the user): screen stays on and Wristpilot stays open through a whole drive; turning Bluetooth off on the phone shows the Stale Turn Card, turning it on recovers.
+
+## Noted in ticket 04's code review
+
+- Views leave out Google Maps' arrow when the watch already has it (ticket 04). If a message carrying a new arrow is lost, the watch keeps the old arrow until the next arrow change. When the watch comes back from stale, it should ask the side service for `turnCard.current` (the full view, arrow included) rather than wait for the next view.

@@ -321,12 +321,28 @@ test('when Google Maps sends no arrow image, the instruction text shows instead'
 test('a new arrow on the same street is a new Maneuver and does not keep the old distance', () => {
   const views = replay([
     [1_000, posted({ title: '90 m', text: 'Jl. Alpha', icon: STRAIGHT })],
-    [2_000, posted({ title: '', text: 'Jl. Alpha', icon: RIGHT })],
+    [2_000, posted({ title: 'Turn right', text: 'Jl. Alpha', icon: RIGHT })],
   ])
 
   assert.deepEqual(views, [
     [1_000, turn({ arrow: STRAIGHT, distance: '90 m', street: 'Jl. Alpha' })],
     [2_000, turn({ arrow: RIGHT, street: 'Jl. Alpha' })],
+  ])
+})
+
+test('an empty-title re-post with an older arrow does not flip the arrow, but updates the trip line', () => {
+  // Recorded: between "100 m" and "90 m", Google Maps re-posted with an empty title and the
+  // previous Maneuver's arrow.
+  const views = replay([
+    [1_000, posted({ title: '100 m', text: 'Jl. Alpha', subText: '4 min · 1.4 km · 3:55 PM ETA', icon: RIGHT })],
+    [2_000, posted({ title: '', text: 'Jl. Alpha', subText: '4 min · 1.4 km · 3:56 PM ETA', icon: STRAIGHT })],
+    [3_000, posted({ title: '90 m', text: 'Jl. Alpha', subText: '4 min · 1.4 km · 3:56 PM ETA', icon: RIGHT })],
+  ])
+
+  assert.deepEqual(views, [
+    [1_000, turn({ arrow: RIGHT, distance: '100 m', street: 'Jl. Alpha', tripLine: 'ETA 3:55 PM · 4 min' })],
+    [2_000, turnSameArrow({ distance: '100 m', street: 'Jl. Alpha', tripLine: 'ETA 3:56 PM · 4 min' })],
+    [3_000, turnSameArrow({ distance: '90 m', street: 'Jl. Alpha', tripLine: 'ETA 3:56 PM · 4 min' })],
   ])
 })
 

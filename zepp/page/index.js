@@ -27,6 +27,8 @@ Page(
     build() {
       this.arrow = hmUI.createWidget(hmUI.widget.CANVAS, ARROW)
       this.hasArrow = false
+      // False until the page has been told an arrow (or none): views leave out an unchanged one.
+      this.knowsArrow = false
       this.instruction = hmUI.createWidget(hmUI.widget.TEXT, {
         ...INSTRUCTION,
         align_h: hmUI.align.CENTER_H,
@@ -53,6 +55,10 @@ Page(
       })
       this.show({ screen: 'waiting' })
       // The page may open mid-Navigation Session: ask for the current view.
+      this.askForCurrent()
+    },
+
+    askForCurrent() {
       this.request({ method: 'turnCard.current' })
         .then((view) => this.show(view))
         .catch(() => {})
@@ -66,6 +72,7 @@ Page(
     // or null for none. Drawn once per new arrow; re-posts with the same arrow don't resend it.
     drawArrow(arrow) {
       this.arrow.clear({ x: 0, y: 0, w: ARROW.w, h: ARROW.h })
+      this.knowsArrow = true
       this.hasArrow = !!arrow
       if (!arrow) return
       const left = Math.round((ARROW.w - arrow.w) / 2)
@@ -86,8 +93,10 @@ Page(
       // No view yet: keep what's on screen.
       if (!view) return
       const onTurn = view.screen === 'turn'
-      // No arrow key: the arrow on the watch is still Google Maps' current one.
+      // No arrow key: the arrow on the watch is still Google Maps' current one. If this page
+      // never got one (a view raced ahead of the turnCard.current reply), ask for it.
       if ('arrow' in view) this.drawArrow(view.arrow)
+      else if (onTurn && !this.knowsArrow) this.askForCurrent()
       for (const widget of this.turnCard) widget.setProperty(hmUI.prop.VISIBLE, onTurn)
       this.arrow.setProperty(hmUI.prop.VISIBLE, onTurn && this.hasArrow)
       this.instruction.setProperty(hmUI.prop.VISIBLE, onTurn && !this.hasArrow)

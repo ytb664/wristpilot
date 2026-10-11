@@ -1,6 +1,7 @@
 // Turns Google Maps' arrow image, as the forwarder sends it, into rectangles the watch draws
-// on a canvas: { w, h, rects: [x, y, w, h, level, ...] }. level 1–15 is the pixel's gray as it
-// looks over the black Turn Card (level × 0x111111); black and clear pixels are left out.
+// on a canvas: { w, h, rects: [x, y, w, h, level, ...] }. level is the pixel's gray as it looks
+// over the black Turn Card, in steps of 5 (5, 10, 15; colour level × 0x111111); black and clear
+// pixels are left out. Four grays keep the arrow's edges smooth but halve the rects of sixteen.
 // A rect is a run of equal pixels in a row, grown down while the rows below repeat it, so the
 // watch needs few draw calls and the Bluetooth message stays small.
 
@@ -35,8 +36,11 @@ export function arrowRects({ w, h, format, data }) {
   return { w, h, rects }
 }
 
+const LEVEL_STEP = 5
+
 function drawnLevel(byte) {
-  return Math.round(((byte >> 4) * (byte & 0x0f)) / 15)
+  const level = ((byte >> 4) * (byte & 0x0f)) / 15
+  return Math.round(level / LEVEL_STEP) * LEVEL_STEP
 }
 
 // The side service has no Buffer or atob.

@@ -18,15 +18,26 @@ const NOTHING = { view: null, buzzes: [] }
 export function createGuidanceCore() {
   let shown = null // the last Turn Card View sent to the watch
   let sessionKey = null // the notification key of the running Navigation Session
-  let current = null // the Maneuver on the Turn Card: { id, distance, sawRealDistance }, id = arrow + turn + street
+  let onCard = null // the Maneuver on the Turn Card: { arrow, turn, street, distance, sawRealDistance }
   let arrivedAt = null // when "Arrived" went up, while it is up
 
   function show(view) {
-    if (sameView(view, shown)) return NOTHING
+    if (sameJson(view, shown)) return NOTHING
     const sent = { ...view }
-    if (view.arrow && shown?.screen === 'turn' && sameView(view.arrow, shown.arrow)) delete sent.arrow
+    if (view.arrow && shown?.screen === 'turn' && sameArrow(view.arrow, shown.arrow)) delete sent.arrow
     shown = view
     return { view: sent, buzzes: [] }
+  }
+
+  function showManeuver(tripLineText) {
+    return show({
+      screen: 'turn',
+      arrow: onCard.arrow,
+      distance: onCard.distance,
+      street: onCard.street,
+      instruction: onCard.arrow ? '' : onCard.turn,
+      tripLine: tripLineText,
+    })
   }
 
   return {
@@ -35,7 +46,7 @@ export function createGuidanceCore() {
       if (snapshot.event === 'removed') {
         if (snapshot.key !== sessionKey) return NOTHING
         sessionKey = null
-        current = null
+        onCard = null
         arrivedAt = null
         // Google Maps removes its notification both on arrival and on cancel. Only the
         // trip line tells them apart: nothing left to drive means we arrived. Arriving at a
@@ -49,23 +60,22 @@ export function createGuidanceCore() {
       const title = withoutDistance(normalise(snapshot.title))
       const text = withoutDistance(normalise(snapshot.text))
       const { instruction, street } = maneuver(text.rest)
+      // Recorded: an empty title re-posts the Maneuver on the Turn Card, sometimes with the
+      // previous Maneuver's arrow. Keep the Maneuver (arrow, distance) and take only the trip line.
+      const rePost = !normalise(snapshot.title) && !text.distance && street === onCard?.street
+      if (rePost) return showManeuver(tripLine(snapshot.subText))
       const turn = instruction || title.rest
       const arrow = snapshot.icon || null
-      const id = `${arrow?.data}\n${turn}\n${street}`
-      if (!current || current.id !== id) current = { id, distance: '', sawRealDistance: false }
+      // A Maneuver is its arrow, turn and street; a new one starts without a distance.
+      if (!onCard || !sameArrow(onCard.arrow, arrow) || onCard.turn !== turn || onCard.street !== street) {
+        onCard = { arrow, turn, street, distance: '', sawRealDistance: false }
+      }
       const distance = title.distance || text.distance
-      if (distance && !isZero(distance)) current.sawRealDistance = true
+      if (distance && !isZero(distance)) onCard.sawRealDistance = true
       // Google Maps opens a Maneuver at "0 m" before its first real distance: that is not
-      // "the turn is here". An empty title re-posts the same update: keep the distance.
-      if (distance && current.sawRealDistance) current.distance = distance
-      return show({
-        screen: 'turn',
-        arrow,
-        distance: current.distance,
-        street,
-        instruction: arrow ? '' : turn,
-        tripLine: tripLine(snapshot.subText),
-      })
+      // "the turn is here".
+      if (distance && onCard.sawRealDistance) onCard.distance = distance
+      return showManeuver(tripLine(snapshot.subText))
     },
 
     current() {
@@ -80,8 +90,12 @@ export function createGuidanceCore() {
   }
 }
 
-function sameView(a, b) {
+function sameJson(a, b) {
   return JSON.stringify(a) === JSON.stringify(b)
+}
+
+function sameArrow(a, b) {
+  return a?.data === b?.data && a?.w === b?.w
 }
 
 // Recorded on the Navigation Phone: Google Maps' guidance notification has the navigation

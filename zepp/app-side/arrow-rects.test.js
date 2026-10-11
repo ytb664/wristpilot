@@ -18,10 +18,10 @@ test('equal pixels in a row become one rect, grown down while the rows below rep
 
 test('each pixel is drawn as its gray over the black Turn Card, and clear pixels are skipped', () => {
   // White at half alpha and mid-gray opaque look the same; then mid-gray at half alpha,
-  // black opaque, white clear.
+  // black opaque, white clear. Grays round to steps of 5.
   const rects = arrowRects(icon(5, 1, [0xf8, 0x8f, 0x88, 0x0f, 0xf0]))
 
-  assert.deepEqual(rects, { w: 5, h: 1, rects: [0, 0, 2, 1, 8, 2, 0, 1, 1, 4] })
+  assert.deepEqual(rects, { w: 5, h: 1, rects: [0, 0, 2, 1, 10, 2, 0, 1, 1, 5] })
 })
 
 test('an image in an unknown format draws nothing', () => {
